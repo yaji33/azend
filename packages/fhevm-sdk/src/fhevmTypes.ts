@@ -1,18 +1,21 @@
-import type { FhevmInstance as _FhevmInstance } from "@zama-fhe/relayer-sdk/bundle";
-import type { HandleContractPair as _HandleContractPair } from "@zama-fhe/relayer-sdk/bundle";
-import type { DecryptedResults as _DecryptedResults } from "@zama-fhe/relayer-sdk/bundle";
-import type { FhevmInstanceConfig as _FhevmInstanceConfig } from "@zama-fhe/relayer-sdk/web";
+import type {
+  FhevmInstance as _FhevmInstance,
+  FhevmInstanceConfig as _FhevmInstanceConfig,
+} from "@zama-fhe/relayer-sdk/web"; 
+
 
 export type FhevmInstance = _FhevmInstance;
 export type FhevmInstanceConfig = _FhevmInstanceConfig;
-export type HandleContractPair = _HandleContractPair;
-export type DecryptedResults = _DecryptedResults;
+
+// Placeholder types
+export type HandleContractPair = any;
+export type DecryptedResults = any;
 
 export type FhevmDecryptionSignatureType = {
   publicKey: string;
   privateKey: string;
   signature: string;
-  startTimestamp: number; // Unix timestamp in seconds
+  startTimestamp: number;
   durationDays: number;
   userAddress: `0x${string}`;
   contractAddresses: `0x${string}`[];
@@ -36,4 +39,3 @@ export type EIP712Type = {
     }[];
   };
 };
-

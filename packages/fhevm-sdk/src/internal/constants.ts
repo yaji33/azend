@@ -1,2 +1,1 @@
-export const SDK_CDN_URL =
-  "https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.umd.cjs";
+export const ACL_ADDRESS = "0x2fb4341027eb1d2aD8B5D9708187df8633DAAA95";
