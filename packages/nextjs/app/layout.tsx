@@ -1,25 +1,24 @@
+// packages/nextjs/app/layout.tsx
 import "@rainbow-me/rainbowkit/styles.css";
+import { Inter, Playfair_Display } from "next/font/google"; // Import both fonts
 import { DappWrapperWithProviders } from "~~/components/DappWrapperWithProviders";
 import { ThemeProvider } from "~~/components/ThemeProvider";
 import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/helper/getMetadata";
 
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
+
 export const metadata = getMetadata({
-  title: "Zama Template",
-  description: "Built with FHEVM",
+  title: "AZEND",
+  description: "Smart events, Safer check-ins.",
 });
 
 const DappWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html suppressHydrationWarning className={``}>
-      <head>
-        <link
-          href="https://api.fontshare.com/v2/css?f[]=telegraf@400,500,700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body>
-        <ThemeProvider enableSystem>
+    <html suppressHydrationWarning>
+      <body className={`${inter.variable} ${playfair.variable} font-sans bg-[#020410] text-white min-h-screen`}>
+        <ThemeProvider enableSystem={false} defaultTheme="dark">
           <DappWrapperWithProviders>{children}</DappWrapperWithProviders>
         </ThemeProvider>
       </body>
