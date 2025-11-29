@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "./AzendEvent.sol";
 
 contract EventFactory {
- 
+    
     AzendEvent[] public deployedEvents;
 
-   
+    // Mapping to track events owned by an organizer
     mapping(address => address[]) public organizerEvents;
 
     event EventCreated(address indexed eventAddress, address indexed organizer, string name);
@@ -21,16 +21,15 @@ contract EventFactory {
         uint256 endTime,
         uint256 capacity
     ) public {
-        
+ 
         AzendEvent newEvent = new AzendEvent(
-            msg.sender, // Organizer
+            msg.sender, 
             name,
             startTime,
             endTime,
             capacity
         );
 
-        
         deployedEvents.push(newEvent);
         organizerEvents[msg.sender].push(address(newEvent));
 

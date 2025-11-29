@@ -6,18 +6,17 @@ import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract AzendEvent is ZamaEthereumConfig, Ownable {
-    // Event Metadata (Public)
+    // Event Metadata 
     string public eventName;
     uint256 public startTime;
     uint256 public endTime;
     uint256 public capacity;
     
-    // The organizer's address (who can decrypt analytics)
+    // The organizer's address 
     address public organizer;
 
-    // Encrypted Analytics (Organizer can decrypt)
+    // Encrypted Analytics 
     euint32 private totalAttendees;
-    
 
     struct EncryptedCheckIn {
         euint64 timestamp;
@@ -25,7 +24,6 @@ contract AzendEvent is ZamaEthereumConfig, Ownable {
         bool hasCheckedIn; 
     }
 
-    // Wallet Address -> Encrypted Data
     mapping(address => EncryptedCheckIn) internal checkIns;
 
     event CheckInRecorded(address indexed attendee);
@@ -36,7 +34,7 @@ contract AzendEvent is ZamaEthereumConfig, Ownable {
         uint256 _startTime,
         uint256 _endTime,
         uint256 _capacity
-    ) Ownable(msg.sender) {
+    ) Ownable(_organizer) { 
         organizer = _organizer;
         eventName = _name;
         startTime = _startTime;
@@ -46,7 +44,7 @@ contract AzendEvent is ZamaEthereumConfig, Ownable {
       
         totalAttendees = FHE.asEuint32(0);
         
-        // Allow contract and organizer to access this initial value
+      
         FHE.allowThis(totalAttendees);
         FHE.allow(totalAttendees, organizer);
     }
@@ -64,30 +62,29 @@ contract AzendEvent is ZamaEthereumConfig, Ownable {
         externalEuint8 inputTicketType,
         bytes calldata ticketTypeProof
     ) public {
-        
         require(block.timestamp <= endTime, "Event has ended");
         require(!checkIns[msg.sender].hasCheckedIn, "Already checked in");
 
-       
+      
         euint64 timestamp = FHE.fromExternal(inputTimestamp, timestampProof);
         euint8 ticketType = FHE.fromExternal(inputTicketType, ticketTypeProof);
 
-     
+        
         checkIns[msg.sender].timestamp = timestamp;
         checkIns[msg.sender].ticketType = ticketType;
         checkIns[msg.sender].hasCheckedIn = true;
 
-      
+        // Allow User to see their own data
         FHE.allowThis(timestamp);
         FHE.allow(timestamp, msg.sender);
         
         FHE.allowThis(ticketType);
         FHE.allow(ticketType, msg.sender);
 
-   
+     
         totalAttendees = FHE.add(totalAttendees, FHE.asEuint32(1));
         
-       
+        // Allow Organizer to see new total
         FHE.allowThis(totalAttendees);
         FHE.allow(totalAttendees, organizer);
 
@@ -104,7 +101,6 @@ contract AzendEvent is ZamaEthereumConfig, Ownable {
 
     /**
      * @notice Returns the user's encrypted ticket type.
-     * Only the user possesses the View Key to decrypt this.
      */
     function getMyEncryptedTicketType() public view returns (euint8) {
         require(checkIns[msg.sender].hasCheckedIn, "No record found");
@@ -112,7 +108,7 @@ contract AzendEvent is ZamaEthereumConfig, Ownable {
     }
     
     /**
-     * @notice Helper to check attendance status publicly (for UI)
+     * @notice Helper to check attendance status publicly 
      */
     function hasAttended(address user) public view returns (bool) {
         return checkIns[user].hasCheckedIn;
