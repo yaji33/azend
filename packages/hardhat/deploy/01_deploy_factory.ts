@@ -11,6 +11,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [],
     log: true,
   });
+
+   console.log("✅ EventFactory deployed successfully!");
+   console.log("📝 Note: The factory will deploy AzendEvent contracts with enhanced metadata");
 };
 
 export default func;
