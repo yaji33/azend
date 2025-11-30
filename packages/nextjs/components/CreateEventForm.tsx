@@ -1,266 +1,453 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Image as ImageIcon, Ticket, UserCheck, MapPin, Users, QrCode, Download, RefreshCw, X, UploadCloud, Calendar as CalendarIcon, ChevronRight } from "lucide-react";
+import { format } from "date-fns";
+
+import {
+  ArrowLeft,
+  Calendar as CalendarIcon,
+  CheckCircle,
+  ChevronRight,
+  Clock,
+  Download,
+  Loader2,
+  MapPin,
+  Ticket,
+  UploadCloud,
+  UserCheck,
+  Users,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { Button } from "~~/components/ui/button";
+import { Calendar } from "~~/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "~~/components/ui/popover";
+import { EVENT_FACTORY_ABI, EVENT_FACTORY_ADDRESS } from "~~/contracts/config";
+
+import { cn } from "~~/lib/utils";
 
 export default function CreateEventForm() {
-  // --- 1. STATE ---
+ 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    startDate: "",
-    endDate: "",
     location: "",
     capacity: "",
-    ticketType: "free", 
+    ticketType: "free",
     price: "",
     requiresApproval: false,
   });
 
+ 
+  const [startDate, setStartDate] = useState<Date>();
+  const [startTime, setStartTime] = useState("18:00");
+  const [endDate, setEndDate] = useState<Date>();
+  const [endTime, setEndTime] = useState("21:00");
+
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // QR States
-  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  // --- 2. HANDLERS ---
+  const [ipfsHash, setIpfsHash] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
 
+ 
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+ 
   const handleChange = (name: string, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === "name" || name === "startDate") setQrCodeUrl(null);
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setBannerPreview(URL.createObjectURL(file));
+    if (!file) return;
+
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File is too large. Max 5MB allowed.");
+      return;
+    }
+
+    setBannerPreview(URL.createObjectURL(file));
+    setIsUploading(true);
+
+    
+    const uploadPromise = fetch("/api/ipfs/upload", {
+      method: "POST",
+      body: (() => {
+        const formData = new FormData();
+        formData.append("file", file);
+        return formData;
+      })(),
+    }).then(async res => {
+      const data = await res.json();
+      if (!data.ipfsHash) throw new Error("Upload failed");
+      setIpfsHash(data.ipfsHash);
+      return data.ipfsHash;
+    });
+
+    toast.promise(uploadPromise, {
+      loading: "Uploading to IPFS...",
+      success: "Banner pinned to IPFS successfully!",
+      error: "Failed to upload banner",
+    });
+
+    try {
+      await uploadPromise;
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const removeImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setBannerPreview(null);
+    setIpfsHash("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+    toast.info("Banner removed");
   };
 
-  const handleGenerateQR = () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+   
     if (!formData.name) {
-      alert("Please enter an Event Name first.");
+      toast.error("Event name is required");
       return;
     }
-    setIsGenerating(true);
-    setTimeout(() => {
-      const uniqueData = `${formData.name}-${formData.startDate}-${Date.now()}`;
-      const url = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(uniqueData)}&color=000000&bgcolor=ffffff`;
-      setQrCodeUrl(url);
-      setIsGenerating(false);
-    }, 1500);
+    if (!startDate || !endDate) {
+      toast.error("Please select both start and end dates");
+      return;
+    }
+
+  
+    const startDateTime = new Date(`${format(startDate, "yyyy-MM-dd")}T${startTime}`);
+    const endDateTime = new Date(`${format(endDate, "yyyy-MM-dd")}T${endTime}`);
+
+    if (endDateTime <= startDateTime) {
+      toast.error("End date must be after start date");
+      return;
+    }
+
+    const startUnix = Math.floor(startDateTime.getTime() / 1000);
+    const endUnix = Math.floor(endDateTime.getTime() / 1000);
+    const capacityInt = parseInt(formData.capacity) || 100;
+
+    // Call Smart Contract
+    try {
+      writeContract({
+        address: EVENT_FACTORY_ADDRESS,
+        abi: EVENT_FACTORY_ABI,
+        functionName: "createEvent",
+        args: [formData.name, BigInt(startUnix), BigInt(endUnix), BigInt(capacityInt)],
+      });
+      
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to initiate transaction");
+    }
   };
 
-  // Helper for Date Display
-  const formatDateDisplay = (dateString: string) => {
-    if (!dateString) return "Pick a date";
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true });
-  };
+
+  if (isConfirmed) {
+    const qrData = JSON.stringify({ name: formData.name, tx: hash });
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&color=000000&bgcolor=ffffff`;
+
+    return (
+      <div className="max-w-2xl mx-auto px-6 pt-32 pb-20 text-center animate-in fade-in zoom-in duration-500">
+        <div className="bg-[#020410]/50 border border-[#CFFF04]/30 rounded-2xl p-12 shadow-2xl flex flex-col items-center backdrop-blur-md">
+          <div className="w-20 h-20 bg-[#CFFF04]/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(207,255,4,0.3)]">
+            <CheckCircle className="text-[#CFFF04] w-10 h-10" />
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-2">Event Live!</h1>
+          <p className="text-gray-400 mb-8 max-w-md">
+            The contract for <span className="text-white font-semibold">{formData.name}</span> has been deployed.
+          </p>
+          <div className="bg-white p-4 rounded-2xl shadow-xl mb-8 transform hover:scale-105 transition-transform duration-300">
+            <img src={qrUrl} alt="Event QR" className="w-48 h-48 rounded-lg" />
+          </div>
+          <div className="flex flex-col md:flex-row gap-4 w-full justify-center">
+            <button
+              onClick={() => window.open(qrUrl, "_blank")}
+              className="px-8 py-3 rounded-xl bg-[#CFFF04] hover:bg-[#bce600] text-black font-bold transition-all flex items-center justify-center gap-2"
+            >
+              <Download size={18} /> Download QR Kit
+            </button>
+            <Link
+              href="/eventz"
+              className="px-8 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-all"
+            >
+              Go to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  if (isPending || isConfirming) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center -mt-20">
+        <div className="relative">
+          <div className="absolute inset-0 bg-[#CFFF04] blur-xl opacity-20 rounded-full animate-pulse"></div>
+          <Loader2 className="w-16 h-16 text-[#CFFF04] animate-spin relative z-10" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mt-8 mb-2">Deploying Contract...</h2>
+        <p className="text-gray-400 text-sm">Encrypting metadata & initializing factory</p>
+        {hash && (
+          <a
+            href={`https://sepolia.etherscan.io/tx/${hash}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-blue-400 mt-6 hover:underline"
+          >
+            View on Etherscan
+          </a>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 md:px-12 pt-32 pb-20">
-      
-      {/* Back Link */}
-      <Link href="/eventz" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 text-sm font-medium">
+      <Link
+        href="/eventz"
+        className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 text-sm font-medium"
+      >
         <ArrowLeft size={16} /> Back to Events
       </Link>
 
-      {/* Title */}
       <div className="mb-10 text-center md:text-left">
-        <h1 className="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Create Event</h1>
-        <p className="text-gray-400 text-sm">Deploy a privacy-preserving event with encrypted attendance tracking</p>
+        <h1 className="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+          Create Event
+        </h1>
+        <p className="text-gray-400 text-sm">Deploy a privacy-preserving event on Zama fhEVM</p>
       </div>
 
-      {/* --- FORM CONTAINER --- */}
       <div className="bg-[#020410]/50 backdrop-blur-md border border-white/10 rounded-2xl p-8 md:p-10 shadow-2xl relative overflow-hidden">
-        
-        {/* Decorative Glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -mr-32 -mt-32"></div>
 
-        <form onSubmit={(e) => e.preventDefault()}>
+        <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            
-            {/* LEFT COLUMN */}
+           
             <div className="space-y-6">
-              
-              {/* Event Name */}
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Event Name</label>
-                <input 
+                <input
                   value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  type="text" 
+                  onChange={e => handleChange("name", e.target.value)}
+                  type="text"
                   placeholder="e.g. Crypto Art Gala"
-                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
                 />
               </div>
 
-              {/* Description */}
               <div className="space-y-2">
-                <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Event Description</label>
-                <textarea 
+                <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Description</label>
+                <textarea
                   value={formData.description}
-                  onChange={(e) => handleChange("description", e.target.value)}
+                  onChange={e => handleChange("description", e.target.value)}
                   rows={4}
                   placeholder="Describe the vibes..."
-                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all resize-none"
                 />
               </div>
 
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 relative group">
-                  <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Start Date</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <CalendarIcon className="h-4 w-4 text-blue-400 group-hover:text-blue-400 transition-colors" />
-                    </div>
-                    <input 
-                      type="datetime-local" 
-                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 pl-10 text-transparent focus:text-white placeholder-transparent focus:outline-none focus:border-blue-500 transition-all cursor-pointer z-10 relative"
-                      onChange={(e) => handleChange("startDate", e.target.value)}
-                    />
-                    <div className="absolute inset-0 pl-10 flex items-center text-sm text-gray-300 pointer-events-none">
-                       {formatDateDisplay(formData.startDate)}
+             
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Start</label>
+                  <div className="flex gap-2">
+                    
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-black/20 border-white/10 hover:bg-white/5 hover:text-white h-12 rounded-xl",
+                            !startDate && "text-muted-foreground",
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-blue-400" />
+                          {startDate ? format(startDate, "PPP") : <span className="text-gray-500">Pick date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-[#020410] border-white/10 text-white" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={startDate}
+                          onSelect={setStartDate}
+                          initialFocus
+                          className="bg-[#020410] rounded-md border border-white/10"
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                   
+                    <div className="relative w-24">
+                      <input
+                        type="time"
+                        value={startTime}
+                        onChange={e => setStartTime(e.target.value)}
+                        className="w-full h-12 bg-black/20 border border-white/10 rounded-xl px-2 text-center text-white focus:border-blue-500 outline-none"
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-2 relative group">
-                  <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">End Date</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <CalendarIcon className="h-4 w-4 text-blue-400 group-hover:text-blue-400 transition-colors" />
-                    </div>
-                    <input 
-                      type="datetime-local" 
-                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 pl-10 text-transparent focus:text-white placeholder-transparent focus:outline-none focus:border-blue-500 transition-all cursor-pointer z-10 relative"
-                      onChange={(e) => handleChange("endDate", e.target.value)}
-                    />
-                    <div className="absolute inset-0 pl-10 flex items-center text-sm text-gray-300 pointer-events-none">
-                       {formatDateDisplay(formData.endDate)}
+               
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">End</label>
+                  <div className="flex gap-2">
+                    
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-black/20 border-white/10 hover:bg-white/5 hover:text-white h-12 rounded-xl",
+                            !endDate && "text-muted-foreground",
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-blue-400" />
+                          {endDate ? format(endDate, "PPP") : <span className="text-gray-500">Pick date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-[#020410] border-white/10 text-white" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={endDate}
+                          onSelect={setEndDate}
+                          initialFocus
+                          className="bg-[#020410] rounded-md border border-white/10"
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                    
+                    <div className="relative w-24">
+                      <input
+                        type="time"
+                        value={endTime}
+                        onChange={e => setEndTime(e.target.value)}
+                        className="w-full h-12 bg-black/20 border border-white/10 rounded-xl px-2 text-center text-white focus:border-blue-500 outline-none"
+                      />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Location */}
+             
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Location</label>
                 <div className="relative group">
-                  <input 
+                  <input
                     value={formData.location}
-                    onChange={(e) => handleChange("location", e.target.value)}
-                    type="text" 
+                    onChange={e => handleChange("location", e.target.value)}
+                    type="text"
                     placeholder="e.g. Decentraland / NYC"
                     className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-blue-500 transition-all pl-12"
                   />
-                  <MapPin className="absolute left-4 top-5 text-blue-400 group-focus-within:text-blue-400 transition-colors" size={16} />
+                  <MapPin className="absolute left-4 top-5 text-blue-400" size={16} />
                 </div>
               </div>
 
-              {/* Capacity */}
+              
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Capacity</label>
                 <div className="relative group">
-                  <input 
+                  <input
                     value={formData.capacity}
-                    onChange={(e) => handleChange("capacity", e.target.value)}
-                    type="number" 
+                    onChange={e => handleChange("capacity", e.target.value)}
+                    type="number"
                     placeholder="100"
                     className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-blue-500 transition-all pl-12"
                   />
-                  <Users className="absolute left-4 top-5 group-focus-within:text-blue-400 transition-colors text-blue-400" size={16} />
+                  <Users
+                    className="absolute left-4 top-5 group-focus-within:text-blue-400 transition-colors text-blue-400"
+                    size={16}
+                  />
                 </div>
               </div>
-
             </div>
 
-            {/* RIGHT COLUMN - ADDED h-full AND flex-col to match height */}
+            
             <div className="space-y-6 flex flex-col h-full">
-              
-              {/* QR GENERATOR */}
-              <div className="space-y-2">
-                <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Check-in QR</label>
-                <div className="bg-black/20 border border-white/10 rounded-xl p-6 flex flex-col items-center justify-center min-h-[180px] relative overflow-hidden group transition-all hover:border-blue-500/30 shadow-inner">
-                  <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#4f4f4f_1px,transparent_1px)] [background-size:16px_16px]"></div>
-                  
-                  {qrCodeUrl ? (
-                    <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500 z-10 w-full">
-                      <div className="bg-white p-3 rounded-lg shadow-lg mb-4">
-                        <img src={qrCodeUrl} alt="QR" className="w-24 h-24" />
-                      </div>
-                      <div className="flex gap-2 w-full">
-                        <button onClick={handleGenerateQR} className="flex-1 text-xs bg-white/5 hover:bg-white/10 py-2 rounded text-gray-300 flex items-center justify-center gap-2"><RefreshCw size={14}/> Regenerate</button>
-                        <button onClick={() => window.open(qrCodeUrl, '_blank')} className="flex-1 text-xs bg-[#CFFF04] hover:bg-[#bce600] text-black font-bold py-2 rounded flex items-center justify-center gap-2"><Download size={14}/> Download</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="z-10 text-center">
-                      <button 
-                        onClick={handleGenerateQR}
-                        disabled={isGenerating}
-                        className="bg-[#CFFF04] hover:bg-[#bce600] text-black px-6 py-3 rounded-full font-bold text-sm shadow-lg shadow-[#CFFF04]/20 transition-all flex items-center gap-2"
-                      >
-                        {isGenerating ? <RefreshCw className="animate-spin" size={16}/> : <QrCode size={16}/>}
-                        {isGenerating ? "Generating..." : "Generate QR Code"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* BANNER UPLOAD */}
+             
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Event Banner</label>
-                <div 
-                  className="w-full h-40 border-2 border-dashed border-white/10 rounded-xl bg-black/20 relative flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 hover:border-blue-500/50 transition-all group overflow-hidden"
-                  onClick={() => fileInputRef.current?.click()}
+                <div
+                  className="w-full h-48 border-2 border-dashed border-white/10 rounded-xl bg-black/20 relative flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 transition-all overflow-hidden group"
+                  onClick={() => !isUploading && fileInputRef.current?.click()}
                 >
-                  <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    accept="image/*"
+                    className="hidden"
+                    disabled={isUploading}
+                  />
+
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                      <Loader2 className="w-8 h-8 text-[#CFFF04] animate-spin mb-2" />
+                      <span className="text-xs text-[#CFFF04] font-bold">Uploading to IPFS...</span>
+                    </div>
+                  )}
+
                   {bannerPreview ? (
                     <>
                       <img src={bannerPreview} alt="Preview" className="w-full h-full object-cover" />
-                      <div className="absolute top-2 right-2">
-                        <button onClick={removeImage} className="bg-red-500/80 hover:bg-red-500 p-1.5 rounded-full text-white backdrop-blur-sm transition-colors"><X size={14} /></button>
+                      <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-[10px] text-[#CFFF04] border border-[#CFFF04]/30 font-mono backdrop-blur-md">
+                        IPFS PINNED
+                      </div>
+                      <div className="absolute top-2 right-2 z-20" onClick={removeImage}>
+                        <div className="bg-red-500/80 hover:bg-red-500 p-1.5 rounded-full text-white backdrop-blur-sm transition-colors shadow-lg">
+                          <X size={14} />
+                        </div>
                       </div>
                     </>
                   ) : (
-                    <>
-                      <div className="p-3 bg-blue-500/10 rounded-full mb-3 text-blue-400 group-hover:scale-110 transition-transform">
-                        <UploadCloud size={24} />
+                    <div className="flex flex-col items-center text-gray-400 group-hover:text-gray-300 transition-colors">
+                      <div className="p-4 bg-white/5 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                        <UploadCloud size={28} className="text-blue-400" />
                       </div>
-                      <span className="text-xs text-gray-400 font-medium">Click to upload banner</span>
-                    </>
+                      <span className="text-xs font-medium">Click to upload banner</span>
+                      <span className="text-[10px] text-gray-500 mt-1">Supports JPG, PNG (Max 5MB)</span>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* SETTINGS CARD - Added 'flex-1' to stretch and match left column height */}
-              <div className="p-5 rounded-xl bg-black/20 border border-white/10 space-y-5 flex-1 flex flex-col justify-center">
+              
+              <div className="p-6 rounded-xl bg-black/20 border border-white/10 space-y-6 flex-1 flex flex-col">
                 
-                {/* Tickets */}
                 <div>
                   <div className="flex items-center gap-2 mb-3 text-sm font-medium text-gray-200">
                     <Ticket className="text-blue-400" size={16} /> Ticket Type
                   </div>
                   <div className="flex bg-black/40 p-1 rounded-lg">
-                    <button 
+                    <button
+                      type="button"
                       onClick={() => handleChange("ticketType", "free")}
                       className={`flex-1 py-2 text-xs rounded-md font-bold transition-all ${formData.ticketType === "free" ? "bg-[#CFFF04] text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
                     >
                       Free
                     </button>
-                    <button 
+                    <button
+                      type="button"
                       onClick={() => handleChange("ticketType", "paid")}
                       className={`flex-1 py-2 text-xs rounded-md font-bold transition-all ${formData.ticketType === "paid" ? "bg-[#CFFF04] text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
                     >
@@ -270,8 +457,8 @@ export default function CreateEventForm() {
                   {formData.ticketType === "paid" && (
                     <div className="mt-3 animate-in slide-in-from-top-2">
                       <div className="relative">
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           placeholder="0.05"
                           className="w-full bg-black/20 border border-white/10 rounded-lg p-2 pl-8 text-sm text-white focus:border-[#CFFF04] focus:outline-none"
                         />
@@ -281,35 +468,40 @@ export default function CreateEventForm() {
                   )}
                 </div>
 
-                {/* Approval */}
-                <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
+                <div className="mt-auto p-4 bg-blue-500/5 border border-blue-500/10 rounded-lg text-xs text-blue-300 leading-relaxed">
+                  <p className="font-semibold mb-1">Privacy Architecture</p>
+                  Events are deployed on Zama&apos;s fhEVM. Attendee data is encrypted end-to-end. Only you can decrypt
+                  aggregate analytics.
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-white/5">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-200">
                     <UserCheck className="text-blue-400" size={16} /> Require Approval
                   </div>
-                  <button 
+                  <button
+                    type="button"
                     onClick={() => handleChange("requiresApproval", !formData.requiresApproval)}
                     className={`w-11 h-6 rounded-full relative transition-colors duration-300 ${formData.requiresApproval ? "bg-[#CFFF04]" : "bg-gray-700"}`}
                   >
-                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.requiresApproval ? "left-6" : "left-1"}`} />
+                    <div
+                      className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.requiresApproval ? "left-6" : "left-1"}`}
+                    />
                   </button>
                 </div>
-
               </div>
-
             </div>
           </div>
 
-          {/* --- SUBMIT BUTTON --- */}
           <div className="mt-12 flex justify-center">
-            <button 
+            <button
               type="submit"
-              className="group relative w-full md:w-2/3 bg-white hover:bg-gray-100 text-black font-extrabold text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2"
+              disabled={isPending || isConfirming}
+              className="group relative w-full md:w-2/3 bg-white hover:bg-gray-100 text-black font-extrabold text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Event 
-              <ChevronRight className="group-hover:translate-x-1 transition-transform" size={20} />
+              {isPending ? "Confirming..." : "Deploy Event Contract"}
+              {!isPending && <ChevronRight className="group-hover:translate-x-1 transition-transform" size={20} />}
             </button>
           </div>
-
         </form>
       </div>
     </div>
