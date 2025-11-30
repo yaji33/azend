@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { User, Calendar, MapPin, UserCheck, Share2, ArrowLeft } from "lucide-react";
-import Navbar from "~~/components/Navbar";
-import LoginModal from "~~/components/LoginModal";
+import Navbar from "../../../components/Navbar";
+import LoginModal from "../../../components/LoginModal";
 import { EVENTS_DATA } from "../../../utils/mockEvents"; // 1. Import Shared Data
 
 export default function EventDetailsPage({ params }: { params: { id: string } }) {
