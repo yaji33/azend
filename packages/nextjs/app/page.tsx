@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 // 1. Import Navbar import Navbar from "~~/components/Navbar";
 import { useRouter } from "next/navigation"; // 1. Import Router
 import { motion, useTransform, useSpring, useMotionValue } from "framer-motion";
-import { Plus, QrCode } from "lucide-react";
+import { Lock, Fingerprint, Plus, QrCode } from "lucide-react";
 
 // --- REUSABLE 3D CARD COMPONENT ---
 const FloatCard = ({ children, className, style, delay = 0, depth = 1, mouseX, mouseY }: any) => {
@@ -92,7 +92,7 @@ export default function Home() {
           <motion.h1 
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-5xl lg:text-7xl font-bold leading-[1.05] mb-6 drop-shadow-2xl pointer-events-auto"
+            className="text-7xl md:text-7xl font-bold leading-[1.05] mb-6 drop-shadow-2xl pointer-events-auto"
           >
             Smart events, <br />
             <span className="text-white">
@@ -116,7 +116,7 @@ export default function Home() {
             transition={{ delay: 0.4 }}
             // 👇 THIS LINE SENDS YOU TO THE FILE YOU CREATED
             onClick={() => router.push("/eventz/create")} 
-            className="text-[#131517] px-8 py-3.5 rounded-xl font-bold text-base shadow-[0_0_40px_rgba(0,148,255,0.5)] hover:shadow-[0_0_60px_rgba(0,148,255,0.8)] transition-all hover:scale-110 pointer-events-auto"
+            className="text-[#131517] px-6 py-3 rounded-xl font-medium text-base transition-all hover:scale-110 pointer-events-auto"
             style={{
                background: "white"
             }}
@@ -128,7 +128,7 @@ export default function Home() {
         {/* RIGHT SIDE (3D Elements) - Kept exactly as your "100% Zoom" version */}
         <div className="relative h-[600px] w-full hidden lg:block perspective-[1500px]">
            {/* 1. JOIN US BUTTON */}
-           <FloatCard depth={2.5} mouseX={mouseX} mouseY={mouseY} delay={0.6} className="bottom-20 right-[30%] z-50 bg-transparent shadow-none">
+           <FloatCard depth={2.5} mouseX={mouseX} mouseY={mouseY} delay={0.6} className="bottom-10 right-[30%] z-50 bg-transparent shadow-none">
              <button className="bg-[#CFFF04] text-black px-8 py-3 rounded-full font-black text-xl shadow-[0_10px_30px_rgba(207,255,4,0.5)] rotate-[-2deg] hover:scale-105 transition-transform border-[3px] border-[#020410]">
                Join us
              </button>
@@ -136,18 +136,38 @@ export default function Home() {
           
            {/* 2. TOP LEFT (User Group) */}
            <FloatCard depth={0.5} mouseX={mouseX} mouseY={mouseY} delay={0.1} className="top-12 left-10 z-20 bg-white text-black p-3.5 rounded-2xl w-52 rotate-[-4deg]">
-            <p className="text-[10px] font-bold mb-2 text-gray-600">10k+ Join the event</p>
-            <div className="flex items-center justify-between">
-              <div className="flex -space-x-2.5">
-                 <img src="https://i.pravatar.cc/100?img=33" className="w-8 h-8 rounded-full border-2 border-white" />
-                 <img src="https://i.pravatar.cc/100?img=47" className="w-8 h-8 rounded-full border-2 border-white" />
-                 <img src="https://i.pravatar.cc/100?img=12" className="w-8 h-8 rounded-full border-2 border-white" />
+          <p className="text-[10px] font-bold mb-2 text-gray-600">10k+ Join the event</p>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex -space-x-2.5">
+              
+              {/* User 1: Blue Encrypted Identity */}
+              <div className="w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white shadow-sm">
+                <Lock size={12} strokeWidth={2.5} />
               </div>
-              <div className="w-8 h-8 rounded-full bg-[#CFFF04] flex items-center justify-center shadow-md">
-                 <Plus size={16} className="text-black"/>
+
+              {/* User 2: Purple Biometric Identity */}
+              <div className="w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white shadow-sm">
+                <Fingerprint size={14} strokeWidth={2.5} />
               </div>
+
+              {/* User 3: Teal Anonymous Identity */}
+              <div className="w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-sm">
+                {/* Simple User Icon representing anonymity */}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+
             </div>
-          </FloatCard>
+            
+            {/* Plus Indicator */}
+            <div className="w-8 h-8 rounded-full bg-[#CFFF04] flex items-center justify-center shadow-md">
+              <Plus size={16} className="text-black stroke-[3px]"/>
+            </div>
+          </div>
+        </FloatCard>
 
           {/* 3. TOP RIGHT (Art Fair) */}
           <FloatCard depth={0.8} mouseX={mouseX} mouseY={mouseY} delay={0.2} className="top-8 right-16 z-10 w-36 h-36 bg-[#1A1A1A] rounded-2xl overflow-hidden rotate-[6deg] border border-white/10">
@@ -182,16 +202,30 @@ export default function Home() {
              <div className="w-24 h-24 -ml-14 -mt-2"><svg viewBox="0 0 100 100" fill="none" className="w-full h-full drop-shadow-xl"><path d="M70 10 C 10 10, 0 60, 30 90" stroke="#CFFF04" strokeWidth="4" strokeLinecap="round" /><path d="M15 80 L 30 90 L 45 75" stroke="#CFFF04" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/></svg></div>
           </FloatCard>
 
-          {/* 6. BOTTOM RIGHT (Club Ticket) */}
-          <FloatCard depth={2} mouseX={mouseX} mouseY={mouseY} delay={0.4} className="top-[48%] right-4 z-40 w-52 h-52 bg-white rounded-[24px] rotate-[8deg]">
-             <div className="w-full h-full relative p-3.5 flex flex-col justify-between overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-white"></div>
-                <div className="relative flex justify-between items-start z-10">
-                   <div className="w-7 h-7 border-[1.5px] border-black rounded flex items-center justify-center font-bold text-[10px] text-black">atl</div>
-                   <div className="bg-[#CFFF04] w-8 h-8 rounded-full flex items-center justify-center"><Plus size={16} className="text-black" /></div>
+          {/* 6. BOTTOM RIGHT (Club Ticket) - Fixed Rounding */}
+          <FloatCard depth={2} mouseX={mouseX} mouseY={mouseY} delay={0.4} className="top-[48%] right-4 z-40 w-52 h-52 bg-white rounded-lg rotate-[8deg] overflow-hidden shadow-xl">
+             <div className="w-full h-full relative flex flex-col justify-between">
+                
+                {/* Background Texture */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-white -z-10"></div>
+                
+                {/* Top Content (With Padding) */}
+                <div className="relative z-10 p-4">
+                   <div className="flex justify-between items-start mb-1">
+                      <div className="w-8 h-8 border-2 border-black rounded-lg flex items-center justify-center font-bold text-[10px] text-black bg-white">atl</div>
+                      <div className="bg-[#CFFF04] w-9 h-9 rounded-full flex items-center justify-center shadow-sm"><Plus size={18} className="text-black" /></div>
+                   </div>
+                   
+                   <div className="text-center">
+                      <h1 className="text-6xl font-black text-black tracking-tighter scale-y-110">Club</h1>
+                   </div>
                 </div>
-                <div className="relative z-10 text-center -mt-1"><h1 className="text-5xl font-black text-black tracking-tighter">Club</h1></div>
-                <div className="relative z-10 p-2.5 -mx-3.5 -mb-3.5 rounded-b-[20px]" style={{ background: "linear-gradient(90deg, #02B8E0 0%, #344DED 100%)" }}><p className="font-bold text-xl text-white">20.06</p><p className="text-[9px] uppercase text-white/90 mt-0.5">MeMachine / Marcelo Kaz</p></div>
+
+                {/* Footer (Flush to bottom, no padding on sides) */}
+                <div className="relative z-10 p-4 py-5" style={{ background: "linear-gradient(90deg, #02B8E0 0%, #344DED 100%)" }}>
+                   <p className="font-bold text-3xl text-white leading-none">20.06</p>
+                   <p className="text-[9px] uppercase text-white/90 mt-1 font-medium tracking-wide">MeMachine / Marcelo Kaz</p>
+                </div>
              </div>
           </FloatCard>
 
