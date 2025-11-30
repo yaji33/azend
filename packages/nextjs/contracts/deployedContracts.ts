@@ -5,107 +5,90 @@
 import { GenericContractsDeclaration } from "~~/utils/helper/contract";
 
 const deployedContracts = {
-  31337: {
-    FHECounter: {
-      address: "0x40e8Aa088739445BC3a3727A724F56508899f65B",
-      abi: [
-        {
-          inputs: [
-            {
-              internalType: "externalEuint32",
-              name: "inputEuint32",
-              type: "bytes32",
-            },
-            {
-              internalType: "bytes",
-              name: "inputProof",
-              type: "bytes",
-            },
-          ],
-          name: "decrement",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "getCount",
-          outputs: [
-            {
-              internalType: "euint32",
-              name: "",
-              type: "bytes32",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "externalEuint32",
-              name: "inputEuint32",
-              type: "bytes32",
-            },
-            {
-              internalType: "bytes",
-              name: "inputProof",
-              type: "bytes",
-            },
-          ],
-          name: "increment",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "protocolId",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "pure",
-          type: "function",
-        },
-      ],
-      inheritedFunctions: {},
-      deployedOnBlock: 3,
-    },
-  },
   11155111: {
-    FHECounter: {
-      address: "0xead137D42d2E6A6a30166EaEf97deBA1C3D1954e",
+    EventFactory: {
+      address: "0x573cE7DC6c3794Dc312DDB0598d67232dB4ef0A6",
       abi: [
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "eventAddress",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "organizer",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "string",
+              name: "name",
+              type: "string",
+            },
+          ],
+          name: "EventCreated",
+          type: "event",
+        },
         {
           inputs: [
             {
-              internalType: "externalEuint32",
-              name: "inputEuint32",
-              type: "bytes32",
+              internalType: "string",
+              name: "name",
+              type: "string",
             },
             {
-              internalType: "bytes",
-              name: "inputProof",
-              type: "bytes",
+              internalType: "uint256",
+              name: "startTime",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "endTime",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "capacity",
+              type: "uint256",
             },
           ],
-          name: "decrement",
+          name: "createEvent",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
         },
         {
-          inputs: [],
-          name: "getCount",
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "deployedEvents",
           outputs: [
             {
-              internalType: "euint32",
+              internalType: "contract AzendEvent",
               name: "",
-              type: "bytes32",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "getAllEvents",
+          outputs: [
+            {
+              internalType: "contract AzendEvent[]",
+              name: "",
+              type: "address[]",
             },
           ],
           stateMutability: "view",
@@ -114,37 +97,49 @@ const deployedContracts = {
         {
           inputs: [
             {
-              internalType: "externalEuint32",
-              name: "inputEuint32",
-              type: "bytes32",
-            },
-            {
-              internalType: "bytes",
-              name: "inputProof",
-              type: "bytes",
+              internalType: "address",
+              name: "_organizer",
+              type: "address",
             },
           ],
-          name: "increment",
-          outputs: [],
-          stateMutability: "nonpayable",
+          name: "getEventsByOrganizer",
+          outputs: [
+            {
+              internalType: "address[]",
+              name: "",
+              type: "address[]",
+            },
+          ],
+          stateMutability: "view",
           type: "function",
         },
         {
-          inputs: [],
-          name: "protocolId",
-          outputs: [
+          inputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
             {
               internalType: "uint256",
               name: "",
               type: "uint256",
             },
           ],
-          stateMutability: "pure",
+          name: "organizerEvents",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
           type: "function",
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 9368216,
+      deployedOnBlock: 9732643,
     },
   },
 } as const;
