@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Navbar from "./Navbar";
 import { InMemoryStorageProvider } from "@fhevm-sdk";
-import { RainbowKitProvider, darkTheme, lightTheme } from "@rainbow-me/rainbowkit";
+import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
-import { useTheme } from "next-themes";
 import { Toaster } from "react-hot-toast";
 import { WagmiProvider } from "wagmi";
-import { Header } from "~~/components/Header";
 import { BlockieAvatar } from "~~/components/helper";
-import { wagmiConfig } from "~~/services/web3/wagmiConfig";
+// CHANGE: Use the root wagmi config instead
+import { config } from "~~/wagmi.config";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,8 +21,6 @@ export const queryClient = new QueryClient({
 });
 
 export const DappWrapperWithProviders = ({ children }: { children: React.ReactNode }) => {
-  const { resolvedTheme } = useTheme();
-  const isDarkMode = resolvedTheme === "dark";
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -30,19 +28,26 @@ export const DappWrapperWithProviders = ({ children }: { children: React.ReactNo
   }, []);
 
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           avatar={BlockieAvatar}
-          theme={mounted ? (isDarkMode ? darkTheme() : lightTheme()) : lightTheme()}
+          theme={darkTheme({
+            accentColor: "#02B8E0",
+            accentColorForeground: "white",
+            borderRadius: "medium",
+          })}
         >
-          <ProgressBar height="3px" color="#2299dd" />
-          <div className={`flex flex-col min-h-screen`}>
-            <Header />
+          <ProgressBar height="3px" color="#CFFF04" />
+
+          <div className="flex flex-col min-h-screen">
+            <Navbar />
+
             <main className="relative flex flex-col flex-1">
               <InMemoryStorageProvider>{children}</InMemoryStorageProvider>
             </main>
           </div>
+
           <Toaster />
         </RainbowKitProvider>
       </QueryClientProvider>

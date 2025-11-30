@@ -1,52 +1,66 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./AzendEvent.sol";
 
 contract EventFactory {
+    address public immutable implementation;
     
-    AzendEvent[] public deployedEvents;
-
-    // Mapping to track events owned by an organizer
+    address[] public deployedEvents;
     mapping(address => address[]) public organizerEvents;
 
     event EventCreated(address indexed eventAddress, address indexed organizer, string name);
 
-    /**
-     * @notice Deploys a new privacy-preserving event contract.
-     */
-    function createEvent(
-        string memory name,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 capacity
-    ) public {
- 
-        AzendEvent newEvent = new AzendEvent(
-            msg.sender, 
-            name,
-            startTime,
-            endTime,
-            capacity
-        );
-
-        deployedEvents.push(newEvent);
-        organizerEvents[msg.sender].push(address(newEvent));
-
-        emit EventCreated(address(newEvent), msg.sender, name);
+    constructor() {
+        
+        implementation = address(new AzendEvent());
     }
 
-    /**
-     * @notice Get all events created by a specific wallet
-     */
+    function createEvent(
+        string memory name,
+        string memory description,
+        string memory location,
+        string memory bannerIpfsHash,
+        uint256 startTime,
+        uint256 endTime,
+        uint256 capacity,
+        bool isFreeEvent,
+        uint256 ticketPrice,
+        bool requiresApproval,
+        bool useEncryptedCounter
+    ) public returns (address) {
+      
+        address clone = Clones.clone(implementation);
+
+        AzendEvent(clone).initialize(
+            msg.sender,
+            name,
+            description,
+            location,
+            bannerIpfsHash,
+            startTime,
+            endTime,
+            capacity,
+            isFreeEvent,
+            ticketPrice,
+            requiresApproval,
+            useEncryptedCounter
+        );
+
+        deployedEvents.push(clone);
+        organizerEvents[msg.sender].push(clone);
+
+        emit EventCreated(clone, msg.sender, name);
+        
+        return clone;
+    }
+
     function getEventsByOrganizer(address _organizer) public view returns (address[] memory) {
         return organizerEvents[_organizer];
     }
 
-    /**
-     * @notice Get all events on the platform
-     */
-    function getAllEvents() public view returns (AzendEvent[] memory) {
+    function getAllEvents() public view returns (address[] memory) {
         return deployedEvents;
     }
 }

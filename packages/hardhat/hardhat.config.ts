@@ -9,11 +9,9 @@ import type { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import * as dotenv from "dotenv";
 
-
 dotenv.config();
 
 import "./tasks/accounts";
-
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || "";
@@ -43,8 +41,8 @@ const config: HardhatUserConfig = {
       chainId: 31337,
     },
     sepolia: {
-      url: SEPOLIA_RPC_URL, // this uses Alchemy URL
-      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [], 
+      url: SEPOLIA_RPC_URL, 
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       chainId: 11155111,
     },
   },
@@ -65,6 +63,7 @@ const config: HardhatUserConfig = {
         runs: 800,
       },
       evmVersion: "cancun",
+      viaIR: true,
     },
   },
   typechain: {

@@ -9,9 +9,16 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: process.env.NEXT_PUBLIC_IGNORE_BUILD_ERROR === "true",
   },
-  webpack: config => {
+
+  webpack: (config: any, { webpack }: any) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
     config.externals.push("pino-pretty", "lokijs", "encoding");
+
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        global: "globalThis",
+      }),
+    );
     return config;
   },
 };

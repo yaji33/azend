@@ -1,0 +1,14 @@
+@tailwind utilities;
+
+:root {
+  background: #020410; /* The deep navy from your screenshot */
+  color: #ffffff;
+}
+:root, [data-theme], body {
+  background-color: #020410 !important;
+  color: white;
+}
+
+body {
+  overflow-x: hidden;
+}
