@@ -1,3 +1,7 @@
 {
-  "installCommand": "yarn install"
+  "buildCommand": "cd ../.. && pnpm install && pnpm next:build",
+  "devCommand": "pnpm dev",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next"
 }
