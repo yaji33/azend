@@ -33,7 +33,7 @@ export default function CreateEventPage() {
   // --- 2. RENDER THE PAGE ---
   return (
     <main 
-      className="min-h-screen bg-[#020410] text-white font-sans selection:bg-[#CFFF04] selection:text-black"
+      className="min-h-screen bg-[#021337] text-white font-sans selection:bg-[#CFFF04] selection:text-black"
     >
       <Navbar />
       
