@@ -35,11 +35,8 @@ export default function CreateEventPage() {
     <main 
       className="min-h-screen bg-[#021337] text-white font-sans selection:bg-[#CFFF04] selection:text-black"
     >
-      <Navbar />
-      
-     
-      <CreateEventForm />
-      
+      <Navbar />    
+      <CreateEventForm />  
     </main>
   );
 }
