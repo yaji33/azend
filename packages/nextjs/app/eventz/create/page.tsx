@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import Navbar from "~~/components/Navbar";
 import LoginModal from "~~/components/LoginModal";
-import CreateEventForm from "~~/components/CreateEventForm"; // Import your new component
+import CreateEventForm from "~~/components/CreateEventForm"; 
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function CreateEventPage() {
 
   if (!isMounted) return null;
 
-  // --- 1. GATEKEEPER: Secure the page ---
+ 
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-[#020410]">
@@ -30,14 +30,14 @@ export default function CreateEventPage() {
     );
   }
 
-  // --- 2. RENDER THE PAGE ---
+ 
   return (
     <main 
-      className="min-h-screen bg-[#020410] text-white font-sans selection:bg-[#CFFF04] selection:text-black"
+      className="min-h-screen bg-[#021337] text-white font-sans selection:bg-[#CFFF04] selection:text-black"
     >
       <Navbar />
       
-      {/* Load the Form Component */}
+     
       <CreateEventForm />
       
     </main>

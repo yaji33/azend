@@ -1,10 +1,11 @@
-// packages/nextjs/app/layout.tsx
+import { Inter, Playfair_Display } from "next/font/google";
 import "@rainbow-me/rainbowkit/styles.css";
-import { Inter, Playfair_Display } from "next/font/google"; // Import both fonts
+import { Toaster } from "sonner";
 import { DappWrapperWithProviders } from "~~/components/DappWrapperWithProviders";
 import { ThemeProvider } from "~~/components/ThemeProvider";
 import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/helper/getMetadata";
+
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" });
@@ -21,6 +22,7 @@ const DappWrapper = ({ children }: { children: React.ReactNode }) => {
         <ThemeProvider enableSystem={false} defaultTheme="dark">
           <DappWrapperWithProviders>{children}</DappWrapperWithProviders>
         </ThemeProvider>
+        <Toaster position="bottom-right" theme="dark" richColors/>
       </body>
     </html>
   );
