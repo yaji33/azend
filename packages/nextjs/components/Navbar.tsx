@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi"; 
 import LoginModal from "../components/LoginModal"; // Recommended import style
+import { User } from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -22,7 +23,7 @@ export default function Navbar() {
     
     { name: "Explore", href: "/explore" }, 
     { name: "Events", href: "/my-events" }, 
-    { name: "Calendars", href: "/calendars" },
+    { name: "Dashboard", href: "/dashboard" },
   ];
 
   return (
@@ -81,10 +82,9 @@ export default function Navbar() {
                     return (
                       <button
                         onClick={openAccountModal}
-                        // 🔴 FIX: Changed text-white to text-black so it is visible on white bg
-                        className="text-black px-6 py-3 rounded-lg font-medium text-sm border border-white/10 shadow-lg"
-                        style={{ background: "white" }}
+                        className="flex items-center gap-2 text-[#CFFF04] px-6 py-3 font-medium text-sm transition-opacity hover:opacity-80"
                       >
+                        <User size={16} />
                         {account.displayName}
                       </button>
                     );
