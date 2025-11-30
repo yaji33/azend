@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/helper/contract";
 const deployedContracts = {
   11155111: {
     EventFactory: {
-      address: "0x573cE7DC6c3794Dc312DDB0598d67232dB4ef0A6",
+      address: "0xEC92BE5A3b4aeF9aA43a53A7e0221C062c571E53",
       abi: [
         {
           anonymous: false,
@@ -42,6 +42,21 @@ const deployedContracts = {
               type: "string",
             },
             {
+              internalType: "string",
+              name: "description",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "location",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "bannerIpfsHash",
+              type: "string",
+            },
+            {
               internalType: "uint256",
               name: "startTime",
               type: "uint256",
@@ -55,6 +70,21 @@ const deployedContracts = {
               internalType: "uint256",
               name: "capacity",
               type: "uint256",
+            },
+            {
+              internalType: "bool",
+              name: "isFreeEvent",
+              type: "bool",
+            },
+            {
+              internalType: "uint256",
+              name: "ticketPrice",
+              type: "uint256",
+            },
+            {
+              internalType: "bool",
+              name: "requiresApproval",
+              type: "bool",
             },
           ],
           name: "createEvent",
@@ -139,7 +169,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 9732643,
+      deployedOnBlock: 9738813,
     },
   },
 } as const;
