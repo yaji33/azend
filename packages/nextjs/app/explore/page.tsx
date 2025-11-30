@@ -1,140 +1,57 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, Calendar, MapPin, Users, ShieldCheck, SlidersHorizontal, ChevronLeft, ChevronRight, ArrowRight, X, Filter } from "lucide-react";
-import Navbar from "../../components/Navbar";
-import LoginModal from "../../components/LoginModal";
-import { EVENTS_DATA } from "../../utils/mockEvents"; // 1. IMPORT SHARED DATA
-
-// --- STATIC CONSTANTS FOR UI ---
-const FEATURED_SLIDES = [
-  {
-    id: 1,
-    title: "METAVERSE MUSIC FESTIVAL",
-    subtitle: "The biggest digital sound experience",
-    image: "https://images.unsplash.com/photo-1470229722913-7c0d2dbbafd3?q=80&w=1200",
-    date: "NOV 28",
-    tag: "Trending"
-  },
-  {
-    id: 2,
-    title: "CRYPTO ART WEEK",
-    subtitle: "NFTs, Digital Sculptures & Live Auctions",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200",
-    date: "DEC 05",
-    tag: "Exclusive"
-  },
-  {
-    id: 3,
-    title: "TECH INNOVATORS SUMMIT",
-    subtitle: "Where the future is built.",
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200",
-    date: "JAN 12",
-    tag: "Networking"
-  }
-];
-
-const LOCATIONS = ["All", "Taguig City", "BGC Arts Center", "Okada Manila", "Pasay City"];
-const CATEGORIES = ["All", "Music", "Art", "Fashion", "Tech", "Gaming"];
+import { AnimatePresence, motion } from "framer-motion";
+import { Filter, Loader2, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { useAccount, useReadContract } from "wagmi";
+import { EventCard } from "~~/components/EventCard";
+import { FeaturedCarousel } from "~~/components/FeaturedCarousel";
+import LoginModal from "~~/components/LoginModal";
+import Navbar from "~~/components/Navbar";
+import { EVENT_FACTORY_ABI, EVENT_FACTORY_ADDRESS } from "~~/contracts/config";
 
 export default function ExploreEvents() {
   const router = useRouter();
-  
-  // --- 1. GATEKEEPER LOGIC ---
   const { isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
+  const { data: eventAddresses, isLoading: isListLoading } = useReadContract({
+    address: EVENT_FACTORY_ADDRESS,
+    abi: EVENT_FACTORY_ABI,
+    functionName: "getAllEvents",
+  });
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // --- 2. STATE MANAGEMENT ---
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState("All");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  
-  // Carousel State
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [direction, setDirection] = useState(0);
-
-  // --- 3. CAROUSEL LOGIC ---
-  useEffect(() => {
-    const timer = setInterval(() => nextSlide(), 5000);
-    return () => clearInterval(timer);
-  }, [currentSlide]);
-
-  const paginate = (newDirection: number) => {
-    setDirection(newDirection);
-    let newIndex = currentSlide + newDirection;
-    if (newIndex >= FEATURED_SLIDES.length) newIndex = 0;
-    if (newIndex < 0) newIndex = FEATURED_SLIDES.length - 1;
-    setCurrentSlide(newIndex);
-  };
-
-  const nextSlide = () => paginate(1);
-  const prevSlide = () => paginate(-1);
-  
-  const swipePower = (offset: number, velocity: number) => {
-    return Math.abs(offset) * velocity;
-  };
-
-  const variants = {
-    enter: (direction: number) => ({ x: direction > 0 ? 1000 : -1000, opacity: 0 }),
-    center: { zIndex: 1, x: 0, opacity: 1 },
-    exit: (direction: number) => ({ zIndex: 0, x: direction < 0 ? 1000 : -1000, opacity: 0 })
-  };
-
-  // --- 4. FILTERING LOGIC ---
-  const filteredEvents = EVENTS_DATA.filter((event) => {
-    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
-    // Flexible matching for location (contains)
-    const matchesLocation = selectedLocation === "All" || event.location.includes(selectedLocation) || event.venue.includes(selectedLocation);
-    const matchesCategory = selectedCategory === "All" || event.category === selectedCategory;
-
-    return matchesSearch && matchesLocation && matchesCategory;
-  });
-
-  const clearFilters = () => {
-    setSelectedLocation("All");
-    setSelectedCategory("All");
-    setSearchQuery("");
-    setIsFilterOpen(false);
-  };
-
-  // --- 5. RENDER GUARD ---
   if (!isMounted) return null;
 
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-[#020410]">
-        <LoginModal 
-          isOpen={true} 
-          onClose={() => router.push("/")} 
-        />
+        <LoginModal isOpen={true} onClose={() => router.push("/")} />
       </div>
     );
   }
-
+  const eventList = eventAddresses ? ([...eventAddresses].reverse() as string[]) : [];
   return (
     <main className="min-h-screen bg-[#020410] text-white font-sans selection:bg-[#CFFF04] selection:text-black">
       <Navbar />
-
-      {/* --- FILTER MODAL (Popup) --- */}
       <AnimatePresence>
         {isFilterOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
               onClick={() => setIsFilterOpen(false)}
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -142,261 +59,104 @@ export default function ExploreEvents() {
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <Filter size={20} className="text-[#CFFF04]"/> Filter Events
+                  <Filter size={20} className="text-[#CFFF04]" /> Filter Events
                 </h3>
-                <button onClick={() => setIsFilterOpen(false)} className="hover:text-red-400"><X size={24}/></button>
+                <button onClick={() => setIsFilterOpen(false)} className="hover:text-red-400">
+                  <X size={24} />
+                </button>
               </div>
 
-              {/* Location Filter */}
-              <div className="mb-6">
-                <label className="text-sm text-gray-400 mb-2 block">Location</label>
-                <div className="flex flex-wrap gap-2">
-                  {LOCATIONS.map(loc => (
-                    <button
-                      key={loc}
-                      onClick={() => setSelectedLocation(loc)}
-                      className={`px-4 py-2 rounded-lg text-sm transition-all border ${
-                        selectedLocation === loc 
-                        ? "bg-[#CFFF04] text-black border-[#CFFF04] font-bold" 
-                        : "bg-white/5 border-white/10 hover:border-white/30"
-                      }`}
-                    >
-                      {loc}
-                    </button>
-                  ))}
-                </div>
+              <div className="text-gray-400 text-sm text-center py-8">
+                Advanced filtering requires The Graph integration (Post-MVP).
+                <br />
+                Currently showing all {eventList.length} events on-chain.
               </div>
 
-              {/* Category Filter */}
-              <div className="mb-8">
-                <label className="text-sm text-gray-400 mb-2 block">Category</label>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-4 py-2 rounded-lg text-sm transition-all border ${
-                        selectedCategory === cat 
-                        ? "bg-blue-600 text-white border-blue-600 font-bold" 
-                        : "bg-white/5 border-white/10 hover:border-white/30"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                 <button onClick={clearFilters} className="flex-1 py-3 rounded-xl border border-white/20 hover:bg-white/10">Clear All</button>
-                 <button onClick={() => setIsFilterOpen(false)} className="flex-1 py-3 rounded-xl bg-blue-600 font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/40">Apply Filters</button>
-              </div>
+              <button
+                onClick={() => setIsFilterOpen(false)}
+                className="w-full py-3 rounded-xl bg-blue-600 font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/40"
+              >
+                Close
+              </button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-
       <div className="max-w-[1280px] mx-auto px-6 md:px-12 pt-32 pb-20">
-        
-        {/* --- HEADER --- */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">Explore Events</h1>
-            <p className="text-gray-400 text-sm max-w-md">
-              Discover privacy-first events and check in securely
-            </p>
+            <p className="text-gray-400 text-sm max-w-md">Discover privacy-first events deployed on Zama/Sepolia</p>
           </div>
-          
+
           <button
             onClick={() => router.push("/eventz/create")}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-black font-bold text-sm transition-transform hover:scale-105 bg-gray-200 hover:bg-white"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-black font-bold text-sm transition-transform hover:scale-105 bg-[#CFFF04] hover:bg-[#bce600]"
           >
             <Plus size={16} /> Create Event
           </button>
         </div>
-
-        {/* --- SEARCH BAR --- */}
         <div className="relative mb-12">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
             <Search className="text-gray-400" size={20} />
           </div>
           <input
             type="text"
-            placeholder="Search events by title..."
+            placeholder="Search events by contract address..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="w-full bg-[#1A1F36] border border-white/5 text-white pl-12 pr-4 py-4 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-gray-500"
           />
         </div>
-
-        {/* --- FEATURED CAROUSEL --- */}
-        <div className="mb-16">
-          <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-            Featured Events <span className="text-[#CFFF04] animate-pulse">●</span>
-          </h2>
-          
-          <div className="relative w-full h-[400px] md:h-[450px] rounded-2xl overflow-hidden shadow-2xl group border border-white/10">
-            <AnimatePresence initial={false} custom={direction}>
-              <motion.div
-                key={currentSlide}
-                custom={direction}
-                variants={variants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={1}
-                onDragEnd={(e, { offset, velocity }) => {
-                  const swipe = swipePower(offset.x, velocity.x);
-                  if (swipe < -10000) nextSlide();
-                  else if (swipe > 10000) prevSlide();
-                }}
-                className="absolute w-full h-full cursor-grab active:cursor-grabbing"
-              >
-                {/* Background Image */}
-                <div 
-                  className="w-full h-full bg-cover bg-center transition-transform duration-[2s] scale-105"
-                  style={{ backgroundImage: `url(${FEATURED_SLIDES[currentSlide].image})` }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#020410] via-[#020410]/40 to-transparent" />
-                <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col items-start z-10">
-                  <span className="bg-[#CFFF04] text-black text-xs font-bold px-3 py-1 rounded-full mb-4">
-                    {FEATURED_SLIDES[currentSlide].tag}
-                  </span>
-                  <h2 className="text-4xl md:text-6xl font-black mb-2 tracking-tight text-white drop-shadow-lg">
-                    {FEATURED_SLIDES[currentSlide].title}
-                  </h2>
-                  <p className="text-gray-200 text-lg mb-6 max-w-xl">
-                    {FEATURED_SLIDES[currentSlide].subtitle}
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <button className="bg-white text-black px-8 py-3 rounded-lg font-bold hover:bg-[#CFFF04] transition-colors flex items-center gap-2">
-                      Get Tickets <ArrowRight size={18} />
-                    </button>
-                    <div className="hidden md:flex flex-col border-l border-white/30 pl-4">
-                       <span className="text-xs text-gray-400">Date</span>
-                       <span className="font-bold text-lg">{FEATURED_SLIDES[currentSlide].date}</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Arrows */}
-            <button className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md z-20 opacity-0 group-hover:opacity-100 transition-opacity" onClick={prevSlide}>
-              <ChevronLeft size={24} />
-            </button>
-            <button className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white p-3 rounded-full backdrop-blur-md z-20 opacity-0 group-hover:opacity-100 transition-opacity" onClick={nextSlide}>
-              <ChevronRight size={24} />
-            </button>
-
-            {/* Dots */}
-            <div className="absolute bottom-6 right-6 md:right-12 flex gap-2 z-20">
-              {FEATURED_SLIDES.map((_, index) => (
-                <div 
-                  key={index}
-                  className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                    index === currentSlide ? "w-8 bg-[#CFFF04]" : "w-2 bg-white/50 hover:bg-white"
-                  }`}
-                  onClick={() => {
-                    setDirection(index > currentSlide ? 1 : -1);
-                    setCurrentSlide(index);
-                  }}
-                />
-              ))}
+        {eventList.length > 0 && (
+          <div className="mb-16">
+            <div className="flex items-center gap-2 mb-6">
+              <h2 className="text-xl font-bold">Featured Events</h2>
+              <span className="text-[#CFFF04] text-xs font-bold px-2 py-0.5 bg-[#CFFF04]/10 rounded border border-[#CFFF04]/20">
+                NEW
+              </span>
             </div>
+            <FeaturedCarousel addresses={eventList} />
           </div>
-        </div>
-
-        {/* --- GRID HEADER & FILTERS --- */}
+        )}
         <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold">
-               {selectedCategory === "All" ? "All Events" : `${selectedCategory} Events`}
-            </h2>
-            {selectedLocation !== "All" && (
-                <span className="text-xs bg-white/10 px-2 py-1 rounded border border-white/20 text-gray-300">
-                    in {selectedLocation}
-                </span>
-            )}
-          </div>
-          
-          <button 
-            onClick={() => setIsFilterOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20"
-          >
-            <SlidersHorizontal size={16} /> Filters
-          </button>
-        </div>
+          <h2 className="text-xl font-bold">Latest Deployments</h2>
 
-        {/* --- EVENTS GRID --- */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
-            <motion.div
-              key={event.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -5 }}
-              onClick={() => router.push(`/eventz/${event.id}`)} // Route to details page
-              className="bg-[#192144] rounded-xl overflow-hidden border border-white/5 hover:border-blue-500/30 transition-all group cursor-pointer"
+          <div className="flex items-center gap-4">
+            <div className="text-xs text-gray-400 hidden md:block">{eventList.length} events found on-chain</div>
+            <button
+              onClick={() => setIsFilterOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A1F36] border border-white/10 hover:border-white/30 text-white text-xs transition-colors"
             >
-              {/* Card Image */}
-              <div className="relative h-48 overflow-hidden">
-                <img 
-                  src={event.image} 
-                  alt={event.title} 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                />
-                <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs font-bold border border-white/10">
-                    {event.category}
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#192144] to-transparent opacity-60" />
-              </div>
-
-              {/* Card Content */}
-              <div className="p-5">
-                <h3 className="text-xl font-bold mb-1 truncate">{event.title}</h3>
-                <p className="text-gray-400 text-xs mb-4 line-clamp-2">{event.description}</p>
-
-                {/* Details List */}
-                <div className="space-y-2 mb-6">
-                  <div className="flex items-center gap-3 text-sm text-gray-300">
-                    <Calendar size={16} className="text-blue-400" />
-                    <span>{event.date}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-300">
-                    <MapPin size={16} className="text-blue-400" />
-                    <span>{event.location}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-300">
-                    <Users size={16} className="text-blue-400" />
-                    <span>{event.attendees} / {event.capacity} attendees</span>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="border-t border-white/10 pt-4 flex justify-between items-center">
-                  <span className="text-xs text-gray-400">65% capacity</span>
-                  <div className="flex items-center gap-1.5 text-blue-400">
-                    <ShieldCheck size={14} />
-                    <span className="text-xs font-medium">Private Check-In</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+              <SlidersHorizontal size={14} /> Filters
+            </button>
+          </div>
         </div>
-        
-        {/* Empty State */}
-        {filteredEvents.length === 0 && (
-          <div className="text-center py-20 bg-white/5 rounded-2xl border border-white/10 mt-6">
-            <Search className="mx-auto h-12 w-12 text-gray-500 mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2">No events found</h3>
-            <p className="text-gray-400 mb-6">Try adjusting your filters or search query.</p>
-            <button onClick={clearFilters} className="text-blue-400 hover:text-blue-300 underline">Clear all filters</button>
+
+        {isListLoading ? (
+          <div className="flex justify-center py-40">
+            <Loader2 className="w-10 h-10 text-[#CFFF04] animate-spin" />
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {eventList.length > 0 ? (
+              eventList.map(
+                (address: string) =>
+                  (!searchQuery || address.toLowerCase().includes(searchQuery.toLowerCase())) && (
+                    <EventCard key={address} address={address} />
+                  ),
+              )
+            ) : (
+              <div className="col-span-full text-center py-20 bg-white/5 rounded-2xl border border-white/10">
+                <Search className="mx-auto h-12 w-12 text-gray-500 mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">No events found</h3>
+                <p className="text-gray-400 mb-6">Be the first to deploy an event on Zama!</p>
+                <button onClick={() => router.push("/eventz/create")} className="text-[#CFFF04] hover:underline">
+                  Create your first event
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

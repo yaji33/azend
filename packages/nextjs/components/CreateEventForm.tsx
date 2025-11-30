@@ -3,21 +3,29 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-// Icons
-import { ArrowLeft, Calendar as CalendarIcon, CheckCircle, ChevronRight, Download, Loader2, MapPin, Ticket, UploadCloud, UserCheck, Users, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar as CalendarIcon,
+  CheckCircle,
+  ChevronRight,
+  Download,
+  Loader2,
+  MapPin,
+  Ticket,
+  UploadCloud,
+  UserCheck,
+  Users,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
-// Replaces alerts
 import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { Button } from "~~/components/ui/button";
 import { Calendar } from "~~/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "~~/components/ui/popover";
 import { EVENT_FACTORY_ABI, EVENT_FACTORY_ADDRESS } from "~~/contracts/config";
-// UI Components
 import { cn } from "~~/lib/utils";
 
-
 export default function CreateEventForm() {
-  // --- 1. STATE ---
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -28,7 +36,6 @@ export default function CreateEventForm() {
     requiresApproval: false,
   });
 
-  // Split Date & Time for better UI control
   const [startDate, setStartDate] = useState<Date>();
   const [startTime, setStartTime] = useState("18:00");
   const [endDate, setEndDate] = useState<Date>();
@@ -37,17 +44,15 @@ export default function CreateEventForm() {
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // IPFS States
+  
   const [ipfsHash, setIpfsHash] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
 
-  // Blockchain Hooks
+
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash,
   });
-
-  // --- 2. HANDLERS ---
 
   const handleChange = (name: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -65,7 +70,7 @@ export default function CreateEventForm() {
     setBannerPreview(URL.createObjectURL(file));
     setIsUploading(true);
 
-    // Create a promise for the toast
+
     const uploadPromise = fetch("/api/ipfs/upload", {
       method: "POST",
       body: (() => {
@@ -95,72 +100,79 @@ export default function CreateEventForm() {
     }
   };
 
-   const removeImage = async (e: React.MouseEvent) => {
-     e.stopPropagation();
+  const removeImage = async (e: React.MouseEvent) => {
+    e.stopPropagation();
 
-     
-     if (ipfsHash) {
-       const loadingToast = toast.loading("Removing image...");
-       try {
-         await fetch("/api/ipfs/unpin", {
-           method: "POST",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ hash: ipfsHash }),
-         });
-         toast.dismiss(loadingToast);
-         toast.success("Image removed from cloud");
-       } catch (err) {
-         console.error("Failed to unpin", err);
-         
-       }
-     }
+    if (ipfsHash) {
+      const loadingToast = toast.loading("Removing image...");
+      try {
+        await fetch("/api/ipfs/unpin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hash: ipfsHash }),
+        });
+        toast.dismiss(loadingToast);
+        toast.success("Image removed from cloud");
+      } catch (err) {
+        console.error("Failed to unpin", err);
+      }
+    }
 
-    
-     setBannerPreview(null);
-     setIpfsHash("");
-     if (fileInputRef.current) fileInputRef.current.value = "";
-   };
+    setBannerPreview(null);
+    setIpfsHash("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    
-     if (!formData.name) {
-       toast.error("Event Name is required");
-       return;
-     }
-     if (!startDate || !endDate) {
-       toast.error("Please select start and end dates");
-       return;
-     }
+    if (!formData.name) {
+      toast.error("Event Name is required");
+      return;
+    }
+    if (!startDate || !endDate) {
+      toast.error("Please select start and end dates");
+      return;
+    }
 
-    
-     const startDateTime = new Date(`${format(startDate, "yyyy-MM-dd")}T${startTime}`);
-     const endDateTime = new Date(`${format(endDate, "yyyy-MM-dd")}T${endTime}`);
+    const startDateTime = new Date(`${format(startDate, "yyyy-MM-dd")}T${startTime}`);
+    const endDateTime = new Date(`${format(endDate, "yyyy-MM-dd")}T${endTime}`);
 
-     if (endDateTime <= startDateTime) {
-       toast.error("End date must be after start date");
-       return;
-     }
+    if (endDateTime <= startDateTime) {
+      toast.error("End date must be after start date");
+      return;
+    }
 
-    
-     const startUnix = Math.floor(startDateTime.getTime() / 1000);
-     const endUnix = Math.floor(endDateTime.getTime() / 1000);
-     const capacityInt = parseInt(formData.capacity) || 100;
+    const startUnix = Math.floor(startDateTime.getTime() / 1000);
+    const endUnix = Math.floor(endDateTime.getTime() / 1000);
+    const capacityInt = parseInt(formData.capacity) || 100;
 
-     try {
-       writeContract({
-         address: EVENT_FACTORY_ADDRESS,
-         abi: EVENT_FACTORY_ABI,
-         functionName: "createEvent",
-         args: [formData.name, BigInt(startUnix), BigInt(endUnix), BigInt(capacityInt)],
-       });
-     } catch (err) {
-       console.error(err);
-       toast.error("Failed to trigger wallet");
-     }
-   };
+    const isFreeEvent = formData.ticketType === "free";
+    const ticketPriceWei = isFreeEvent ? 0 : parseFloat(formData.price || "0") * 1e18;
 
+    try {
+      writeContract({
+        address: EVENT_FACTORY_ADDRESS,
+        abi: EVENT_FACTORY_ABI,
+        functionName: "createEvent",
+        args: [
+          formData.name, 
+          formData.description, 
+          formData.location, 
+          ipfsHash || "", 
+          BigInt(startUnix),
+          BigInt(endUnix), 
+          BigInt(capacityInt), 
+          isFreeEvent, 
+          BigInt(Math.floor(ticketPriceWei)),
+          formData.requiresApproval, 
+        ],
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to trigger wallet");
+    }
+  };
 
   if (isConfirmed) {
     const qrData = JSON.stringify({ name: formData.name, tx: hash });
@@ -169,9 +181,7 @@ export default function CreateEventForm() {
     return (
       <div className="max-w-2xl mx-auto px-6 pt-32 pb-20 text-center animate-in fade-in zoom-in duration-500">
         <div className="bg-[#020410]/50 border border-[#CFFF04]/30 rounded-2xl p-12 shadow-2xl flex flex-col items-center backdrop-blur-md">
-          <div className="w-20 h-20 bg-[#CFFF04]/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(207,255,4,0.3)]">
-            <CheckCircle className="text-[#CFFF04] w-10 h-10" />
-          </div>
+         
           <h1 className="text-4xl font-bold text-white mb-2">Event Live!</h1>
           <p className="text-gray-400 mb-8 max-w-md">
             The contract for <span className="text-white font-semibold">{formData.name}</span> has been deployed.
@@ -198,7 +208,6 @@ export default function CreateEventForm() {
     );
   }
 
-
   if (isPending || isConfirming) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center -mt-20">
@@ -222,11 +231,10 @@ export default function CreateEventForm() {
     );
   }
 
-
   return (
     <div className="max-w-[1100px] mx-auto px-6 md:px-12 pt-32 pb-20">
       <Link
-        href="/eventz"
+        href="/explore"
         className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 text-sm font-medium"
       >
         <ArrowLeft size={16} /> Back to Events
@@ -244,9 +252,7 @@ export default function CreateEventForm() {
 
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            
             <div className="space-y-6">
-              
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Event Name</label>
                 <input
@@ -258,7 +264,6 @@ export default function CreateEventForm() {
                 />
               </div>
 
-              
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Description</label>
                 <textarea
@@ -270,13 +275,10 @@ export default function CreateEventForm() {
                 />
               </div>
 
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
                 <div className="space-y-2">
                   <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Start</label>
                   <div className="flex gap-2">
-                    
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -305,11 +307,9 @@ export default function CreateEventForm() {
                   </div>
                 </div>
 
-                
                 <div className="space-y-2">
                   <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">End</label>
                   <div className="flex gap-2">
-                    
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -338,7 +338,6 @@ export default function CreateEventForm() {
                 </div>
               </div>
 
-             
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Location</label>
                 <div className="relative group">
@@ -353,7 +352,6 @@ export default function CreateEventForm() {
                 </div>
               </div>
 
-             
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Capacity</label>
                 <div className="relative group">
@@ -373,7 +371,6 @@ export default function CreateEventForm() {
             </div>
 
             <div className="space-y-6 flex flex-col h-full">
-             
               <div className="space-y-2">
                 <label className="text-xs text-gray-300 font-medium ml-1 uppercase tracking-wider">Event Banner</label>
                 <div
@@ -422,7 +419,6 @@ export default function CreateEventForm() {
                 </div>
               </div>
 
-              
               <div className="p-6 rounded-xl bg-black/20 border border-white/10 space-y-6 flex-1 flex flex-col">
                 <div>
                   <div className="flex items-center gap-2 mb-3 text-sm font-medium text-gray-200">
@@ -449,7 +445,10 @@ export default function CreateEventForm() {
                       <div className="relative">
                         <input
                           type="number"
+                          step="0.001"
                           placeholder="0.05"
+                          value={formData.price}
+                          onChange={e => handleChange("price", e.target.value)}
                           className="w-full bg-black/20 border border-white/10 rounded-lg p-2 pl-8 text-sm text-white focus:border-[#CFFF04] focus:outline-none"
                         />
                         <span className="absolute left-3 top-2 text-gray-500 text-xs">Ξ</span>
@@ -482,7 +481,6 @@ export default function CreateEventForm() {
             </div>
           </div>
 
-        
           <div className="mt-12 flex justify-center">
             <button
               type="submit"
