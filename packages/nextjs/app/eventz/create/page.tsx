@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
-import Navbar from "~~/components/Navbar";
-import LoginModal from "~~/components/LoginModal";
-import CreateEventForm from "~~/components/CreateEventForm"; // Import your new component
+import Navbar from "../../../components/Navbar";
+import LoginModal from "../../../components/LoginModal";
+import CreateEventForm from "../../../components/CreateEventForm"; // Import your new component
 
 export default function CreateEventPage() {
   const router = useRouter();
