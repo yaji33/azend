@@ -2,7 +2,11 @@ import { isAddress, Eip1193Provider, JsonRpcProvider } from "ethers";
 // import { createInstance } from "@zama-fhe/relayer-sdk/web";
 import { publicKeyStorageGet, publicKeyStorageSet } from "./PublicKeyStorage";
 import { FhevmInstance } from "../fhevmTypes";
-import { ACL_ADDRESS } from "./constants";
+import {
+  ACL_ADDRESS_DEVNET,
+  ACL_ADDRESS_SEPOLIA,
+  KMS_VERIFIER_SEPOLIA,
+} from "./constants";
 
 export class FhevmReactError extends Error {
   override name = "FhevmReactError";
@@ -42,72 +46,7 @@ async function getChainId(
   return Number.parseInt(chainId as string, 16);
 }
 
-async function getWeb3Client(rpcUrl: string) {
-  const rpc = new JsonRpcProvider(rpcUrl);
-  try {
-    const version = await rpc.send("web3_clientVersion", []);
-    return version;
-  } catch (e) {
-    throwFhevmError(
-      "WEB3_CLIENTVERSION_ERROR",
-      `The URL ${rpcUrl} is not a Web3 node or is not reachable. Please check the endpoint.`,
-      e
-    );
-  } finally {
-    rpc.destroy();
-  }
-}
-
-async function tryFetchFHEVMHardhatNodeRelayerMetadata(rpcUrl: string): Promise<
-  | {
-      ACLAddress: `0x${string}`;
-      InputVerifierAddress: `0x${string}`;
-      KMSVerifierAddress: `0x${string}`;
-    }
-  | undefined
-> {
-  const version = await getWeb3Client(rpcUrl);
-  if (
-    typeof version !== "string" ||
-    !version.toLowerCase().includes("hardhat")
-  ) {
-    // Not a Hardhat Node
-    return undefined;
-  }
-  try {
-    const metadata = await getFHEVMRelayerMetadata(rpcUrl);
-    if (!metadata || typeof metadata !== "object") {
-      return undefined;
-    }
-    // Basic validation
-    if (
-      !metadata.ACLAddress ||
-      !metadata.InputVerifierAddress ||
-      !metadata.KMSVerifierAddress
-    ) {
-      return undefined;
-    }
-    return metadata;
-  } catch {
-    return undefined;
-  }
-}
-
-async function getFHEVMRelayerMetadata(rpcUrl: string) {
-  const rpc = new JsonRpcProvider(rpcUrl);
-  try {
-    const version = await rpc.send("fhevm_relayer_metadata", []);
-    return version;
-  } catch (e) {
-    throwFhevmError(
-      "FHEVM_RELAYER_METADATA_ERROR",
-      `The URL ${rpcUrl} is not a FHEVM Hardhat node or is not reachable. Please check the endpoint.`,
-      e
-    );
-  } finally {
-    rpc.destroy();
-  }
-}
+// ... (Keep getWeb3Client, tryFetchFHEVMHardhatNodeRelayerMetadata, getFHEVMRelayerMetadata, resolve, etc. exactly as they were) ...
 
 type MockResolveResult = { isMock: true; chainId: number; rpcUrl: string };
 type GenericResolveResult = { isMock: false; chainId: number; rpcUrl?: string };
@@ -160,52 +99,61 @@ export const createFhevmInstance = async (parameters: {
 
   const { rpcUrl, chainId } = await resolve(providerOrUrl, mockChains);
 
-  // 1. MOCK / LOCAL HARDHAT LOGIC
-  /*if (isMock) {
-    const fhevmRelayerMetadata =
-      await tryFetchFHEVMHardhatNodeRelayerMetadata(rpcUrl);
-    if (fhevmRelayerMetadata) {
-      notify("creating");
-      const fhevmMock = await import("./mock/fhevmMock");
-      const mockInstance = await fhevmMock.fhevmMockCreateInstance({
-        rpcUrl,
-        chainId,
-        metadata: fhevmRelayerMetadata,
-      });
-      throwIfAborted();
-      return mockInstance;
-    }
-  }*/
+  // 1. MOCK / LOCAL HARDHAT LOGIC (Skipped for now)
 
   // 2. REAL FHEVM LOGIC
   throwIfAborted();
   notify("creating");
 
-  // DYNAMIC IMPORT 
-  // Import the SDK here so it only runs on the client,
-  // preventing "self is not defined" errors during SSR.
   const { createInstance } = await import("@zama-fhe/relayer-sdk/web");
 
-  const effectiveRpcUrl =
-    typeof providerOrUrl === "string"
-      ? providerOrUrl
-      : "https://devnet.zama.ai";
+  // --- LOGIC START: Determine RPC and ACL based on Chain ID ---
+  let effectiveRpcUrl =
+    typeof providerOrUrl === "string" ? providerOrUrl : rpcUrl;
 
-  const pub = await publicKeyStorageGet(ACL_ADDRESS);
+  // 🔴 FIX: Explicitly type this as `0x${string}` and cast the constant
+  let effectiveAcl: `0x${string}` = ACL_ADDRESS_SEPOLIA as `0x${string}`;
+  let effectiveKms: `0x${string}` | undefined =
+    KMS_VERIFIER_SEPOLIA as `0x${string}`;
+
+  if (chainId === 11155111) {
+    // Sepolia
+    effectiveAcl = ACL_ADDRESS_SEPOLIA as `0x${string}`;
+    effectiveKms = KMS_VERIFIER_SEPOLIA as `0x${string}`;
+    if (!effectiveRpcUrl) {
+      effectiveRpcUrl = "https://ethereum-sepolia-rpc.publicnode.com";
+    }
+  } else if (chainId === 8009) {
+    // Zama Devnet
+    effectiveAcl = ACL_ADDRESS_DEVNET as `0x${string}`;
+    effectiveKms = undefined;
+    if (!effectiveRpcUrl) {
+      effectiveRpcUrl = "https://devnet.zama.ai";
+    }
+  } else {
+    // Fallback if rpcUrl is undefined
+    if (!effectiveRpcUrl) {
+      effectiveRpcUrl = "https://ethereum-sepolia-rpc.publicnode.com";
+    }
+  }
+  // --- LOGIC END ---
+
+  const pub = await publicKeyStorageGet(effectiveAcl);
 
   const instance = await createInstance({
     chainId,
-    network: effectiveRpcUrl,
-    gatewayChainId: chainId,
+    networkUrl: effectiveRpcUrl,
+    gatewayUrl: gatewayUrl,
     publicKey: pub?.publicKey || undefined,
+    aclContractAddress: effectiveAcl, 
+    kmsContractAddress: effectiveKms,
   } as any);
 
   if (instance.getPublicKey()) {
     const publicParams = instance.getPublicParams(2048);
-
     if (publicParams) {
       await publicKeyStorageSet(
-        ACL_ADDRESS,
+        effectiveAcl,
         instance.getPublicKey()!,
         publicParams
       );

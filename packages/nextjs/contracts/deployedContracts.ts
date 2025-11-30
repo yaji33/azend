@@ -7,8 +7,34 @@ import { GenericContractsDeclaration } from "~~/utils/helper/contract";
 const deployedContracts = {
   11155111: {
     EventFactory: {
-      address: "0xEC92BE5A3b4aeF9aA43a53A7e0221C062c571E53",
+      address: "0x36fe65BBC38c4692C9C6138d6a103d1BfE93942a",
       abi: [
+        {
+          inputs: [],
+          stateMutability: "nonpayable",
+          type: "constructor",
+        },
+        {
+          inputs: [],
+          name: "FailedDeployment",
+          type: "error",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "balance",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "needed",
+              type: "uint256",
+            },
+          ],
+          name: "InsufficientBalance",
+          type: "error",
+        },
         {
           anonymous: false,
           inputs: [
@@ -86,9 +112,20 @@ const deployedContracts = {
               name: "requiresApproval",
               type: "bool",
             },
+            {
+              internalType: "bool",
+              name: "useEncryptedCounter",
+              type: "bool",
+            },
           ],
           name: "createEvent",
-          outputs: [],
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
           stateMutability: "nonpayable",
           type: "function",
         },
@@ -103,7 +140,7 @@ const deployedContracts = {
           name: "deployedEvents",
           outputs: [
             {
-              internalType: "contract AzendEvent",
+              internalType: "address",
               name: "",
               type: "address",
             },
@@ -116,7 +153,7 @@ const deployedContracts = {
           name: "getAllEvents",
           outputs: [
             {
-              internalType: "contract AzendEvent[]",
+              internalType: "address[]",
               name: "",
               type: "address[]",
             },
@@ -138,6 +175,19 @@ const deployedContracts = {
               internalType: "address[]",
               name: "",
               type: "address[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "implementation",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
             },
           ],
           stateMutability: "view",
@@ -169,7 +219,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 9738813,
+      deployedOnBlock: 9741198,
     },
   },
 } as const;

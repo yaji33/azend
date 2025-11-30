@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
-  CheckCircle,
   ChevronRight,
   Download,
   Loader2,
@@ -31,9 +30,11 @@ export default function CreateEventForm() {
     description: "",
     location: "",
     capacity: "",
-    ticketType: "free",
-    price: "",
     requiresApproval: false,
+    ticketName: "General Admission",
+    price: "",
+    limit: "",
+    ticketType: "free",
   });
 
   const [startDate, setStartDate] = useState<Date>();
@@ -44,10 +45,8 @@ export default function CreateEventForm() {
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  
   const [ipfsHash, setIpfsHash] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
-
 
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
@@ -69,7 +68,6 @@ export default function CreateEventForm() {
 
     setBannerPreview(URL.createObjectURL(file));
     setIsUploading(true);
-
 
     const uploadPromise = fetch("/api/ipfs/upload", {
       method: "POST",
@@ -151,23 +149,39 @@ export default function CreateEventForm() {
     const ticketPriceWei = isFreeEvent ? 0 : parseFloat(formData.price || "0") * 1e18;
 
     try {
-      writeContract({
-        address: EVENT_FACTORY_ADDRESS,
-        abi: EVENT_FACTORY_ABI,
-        functionName: "createEvent",
-        args: [
-          formData.name, 
-          formData.description, 
-          formData.location, 
-          ipfsHash || "", 
-          BigInt(startUnix),
-          BigInt(endUnix), 
-          BigInt(capacityInt), 
-          isFreeEvent, 
-          BigInt(Math.floor(ticketPriceWei)),
-          formData.requiresApproval, 
-        ],
-      });
+      // Use a very conservative gas limit - well under the 16M cap
+      const gasLimit = 1500000n; // 1.5M gas - should be enough for clone + initialize
+
+      console.log("Sending transaction with gas limit:", gasLimit.toString());
+
+      writeContract(
+        {
+          address: EVENT_FACTORY_ADDRESS,
+          abi: EVENT_FACTORY_ABI,
+          functionName: "createEvent",
+          args: [
+            formData.name,
+            formData.description,
+            formData.location,
+            ipfsHash || "",
+            BigInt(startUnix),
+            BigInt(endUnix),
+            BigInt(capacityInt),
+            isFreeEvent,
+            BigInt(Math.floor(ticketPriceWei)),
+            formData.requiresApproval,
+            false, // useEncryptedCounter
+          ],
+          gas: gasLimit,
+          type: "legacy", // Try legacy transaction type to avoid EIP-1559 issues
+        },
+        {
+          onError: error => {
+            console.error("Full transaction error:", error);
+            toast.error(`Transaction failed: ${error.message.slice(0, 100)}`);
+          },
+        },
+      );
     } catch (err) {
       console.error(err);
       toast.error("Failed to trigger wallet");
@@ -181,7 +195,6 @@ export default function CreateEventForm() {
     return (
       <div className="max-w-2xl mx-auto px-6 pt-32 pb-20 text-center animate-in fade-in zoom-in duration-500">
         <div className="bg-[#020410]/50 border border-[#CFFF04]/30 rounded-2xl p-12 shadow-2xl flex flex-col items-center backdrop-blur-md">
-         
           <h1 className="text-4xl font-bold text-white mb-2">Event Live!</h1>
           <p className="text-gray-400 mb-8 max-w-md">
             The contract for <span className="text-white font-semibold">{formData.name}</span> has been deployed.
@@ -286,7 +299,6 @@ export default function CreateEventForm() {
                           className={cn(
                             "w-full justify-start text-left font-normal h-auto",
                             "bg-black/20 border border-white/10 rounded-xl p-4",
-
                             !startDate && "text-gray-500",
                           )}
                         >
@@ -317,7 +329,7 @@ export default function CreateEventForm() {
                           className={cn(
                             "w-full justify-start text-left font-normal h-auto",
                             "bg-black/20 border border-white/10 rounded-xl p-4",
-                            !startDate && "text-gray-500",
+                            !endDate && "text-gray-500",
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4 text-blue-400" />
@@ -441,7 +453,7 @@ export default function CreateEventForm() {
                     </button>
                   </div>
                   {formData.ticketType === "paid" && (
-                    <div className="mt-3 animate-in slide-in-from-top-2">
+                    <div className="mt-3 space-y-3 animate-in slide-in-from-top-2">
                       <div className="relative">
                         <input
                           type="number"

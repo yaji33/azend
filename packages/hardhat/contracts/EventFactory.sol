@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./AzendEvent.sol";
 
 contract EventFactory {
-    AzendEvent[] public deployedEvents;
+    address public immutable implementation;
+    
+    address[] public deployedEvents;
     mapping(address => address[]) public organizerEvents;
 
     event EventCreated(address indexed eventAddress, address indexed organizer, string name);
+
+    constructor() {
+        
+        implementation = address(new AzendEvent());
+    }
 
     function createEvent(
         string memory name,
@@ -19,10 +27,14 @@ contract EventFactory {
         uint256 capacity,
         bool isFreeEvent,
         uint256 ticketPrice,
-        bool requiresApproval
-    ) public {
-        AzendEvent newEvent = new AzendEvent(
-            msg.sender, 
+        bool requiresApproval,
+        bool useEncryptedCounter
+    ) public returns (address) {
+      
+        address clone = Clones.clone(implementation);
+
+        AzendEvent(clone).initialize(
+            msg.sender,
             name,
             description,
             location,
@@ -32,20 +44,23 @@ contract EventFactory {
             capacity,
             isFreeEvent,
             ticketPrice,
-            requiresApproval
+            requiresApproval,
+            useEncryptedCounter
         );
 
-        deployedEvents.push(newEvent);
-        organizerEvents[msg.sender].push(address(newEvent));
+        deployedEvents.push(clone);
+        organizerEvents[msg.sender].push(clone);
 
-        emit EventCreated(address(newEvent), msg.sender, name);
+        emit EventCreated(clone, msg.sender, name);
+        
+        return clone;
     }
 
     function getEventsByOrganizer(address _organizer) public view returns (address[] memory) {
         return organizerEvents[_organizer];
     }
 
-    function getAllEvents() public view returns (AzendEvent[] memory) {
+    function getAllEvents() public view returns (address[] memory) {
         return deployedEvents;
     }
 }
