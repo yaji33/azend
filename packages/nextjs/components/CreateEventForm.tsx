@@ -149,8 +149,8 @@ export default function CreateEventForm() {
     const ticketPriceWei = isFreeEvent ? 0 : parseFloat(formData.price || "0") * 1e18;
 
     try {
-      // Use a very conservative gas limit - well under the 16M cap
-      const gasLimit = 1500000n; // 1.5M gas - should be enough for clone + initialize
+     
+      const gasLimit = BigInt(1500000); 
 
       console.log("Sending transaction with gas limit:", gasLimit.toString());
 

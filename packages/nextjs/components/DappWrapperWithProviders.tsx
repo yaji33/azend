@@ -9,7 +9,6 @@ import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
 import { Toaster } from "react-hot-toast";
 import { WagmiProvider } from "wagmi";
 import { BlockieAvatar } from "~~/components/helper";
-// CHANGE: Use the root wagmi config instead
 import { config } from "~~/wagmi.config";
 
 export const queryClient = new QueryClient({

@@ -22,10 +22,16 @@ const config: HardhatUserConfig = {
   namedAccounts: {
     deployer: 0,
   },
+  // ✅ UPDATED: Use single API key for Etherscan V2
   etherscan: {
-    apiKey: {
-      sepolia: ETHERSCAN_API_KEY,
-    },
+    apiKey: ETHERSCAN_API_KEY, // Just the API key, no network-specific
+  },
+  sourcify: {
+    // ✅ Enable Sourcify for better verification
+    enabled: true,
+    // Optional: defaults to true
+    apiUrl: "https://sourcify.dev/server",
+    browserUrl: "https://repo.sourcify.dev",
   },
   gasReporter: {
     currency: "USD",
@@ -41,7 +47,7 @@ const config: HardhatUserConfig = {
       chainId: 31337,
     },
     sepolia: {
-      url: SEPOLIA_RPC_URL, 
+      url: SEPOLIA_RPC_URL,
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       chainId: 11155111,
     },

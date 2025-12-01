@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useFHEEncryption, useFhevm } from "@fhevm-sdk/react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
@@ -19,17 +20,21 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatEther, toHex } from "viem";
+import { formatEther } from "viem";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import JoinRequestModal from "~~/components/JoinRequestModal";
 import LoginModal from "~~/components/LoginModal";
 import Navbar from "~~/components/Navbar";
 import { AZEND_EVENT_ABI } from "~~/contracts/config";
+import { useWagmiEthers } from "~~/hooks/wagmi/useWagmiEthers";
+import { getFhevmConfig } from "~~/utils/fhevm.config";
+
 
 export default function EventDetailsPage() {
   const router = useRouter();
   const params = useParams();
-  const { address: userAddress, isConnected, connector } = useAccount();
+  const { address: userAddress, isConnected, chainId } = useAccount();
+  const { ethersSigner } = useWagmiEthers();
 
   const [isMounted, setIsMounted] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -37,9 +42,54 @@ export default function EventDetailsPage() {
   const [fheStatus, setFheStatus] = useState("");
   const contractAddress = params.id as `0x${string}`;
 
+ 
+  const fhevmConfig = useMemo(() => getFhevmConfig(chainId), [chainId]);
+
+
+  const provider = useMemo(() => {
+    if (typeof window !== "undefined" && window.ethereum) {
+      return window.ethereum;
+    }
+    return undefined;
+  }, []);
+
+
+  const {
+    instance,
+    status: fhevmStatus,
+    error: fhevmError,
+  } = useFhevm({
+    provider,
+    chainId: fhevmConfig.chainId,
+    enabled: isConnected && !!provider,
+  });
+
+ 
+  const { canEncrypt, encryptWith } = useFHEEncryption({
+    instance,
+    ethersSigner,
+    contractAddress,
+  });
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+ 
+  useEffect(() => {
+    if (fhevmStatus !== "idle") {
+      console.log("🔐 FHEVM Status:", fhevmStatus, {
+        chainId: fhevmConfig.chainId,
+        hasInstance: !!instance,
+        canEncrypt,
+        gatewayUrl: fhevmConfig.gatewayUrl,
+      });
+    }
+    if (fhevmError) {
+      console.error("❌ FHEVM Error:", fhevmError);
+      toast.error("Failed to initialize encryption system");
+    }
+  }, [fhevmStatus, fhevmError, instance, canEncrypt, fhevmConfig]);
 
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
@@ -68,56 +118,24 @@ export default function EventDetailsPage() {
     mutation: {
       onError: error => {
         console.error("❌ [CHECK-IN] Write contract error:", error);
-        console.error("❌ [CHECK-IN] Error details:", {
-          name: error.name,
-          message: error.message,
-          cause: error.cause,
-        });
         toast.error(`Transaction failed: ${error.message.slice(0, 50)}...`);
         setIsFheLoading(false);
         setFheStatus("");
       },
       onSuccess: data => {
         console.log("✅ [CHECK-IN] Transaction sent:", data);
+        toast.success("Transaction submitted!");
       },
     },
   });
+
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
-
-  // Monitor state changes
-  useEffect(() => {
-    console.log("📊 [CHECK-IN STATE]", {
-      isPending,
-      isConfirming,
-      isConfirmed,
-      txHash,
-      isFheLoading,
-      fheStatus,
-    });
-  }, [isPending, isConfirming, isConfirmed, txHash, isFheLoading, fheStatus]);
-
-  useEffect(() => {
-    if (isConfirmed) {
-      toast.success("Transaction successful!");
-      setIsRequestModalOpen(false);
-      setFheStatus("");
-      setIsFheLoading(false);
-      refetch();
-    }
-  }, [isConfirmed, refetch]);
-
-  useEffect(() => {
-    if (txError) {
-      toast.error(`Transaction failed: ${txError.message.slice(0, 50)}...`);
-      setIsFheLoading(false);
-      setFheStatus("");
-    }
-  }, [txError]);
 
   const eventName = data?.[0]?.result ? String(data[0].result) : "Untitled Event";
   const description = data?.[1]?.result ? String(data[1].result) : "No description provided.";
   const location = data?.[2]?.result ? String(data[2].result) : "TBA";
   const startUnix = data?.[3]?.result ? Number(data[3].result) : 0;
+  const endUnix = data?.[4]?.result ? Number(data[4].result) : 0;
   const dateString = startUnix > 0 ? format(new Date(startUnix * 1000), "EEEE, MMMM do yyyy") : "Date TBA";
   const timeString = startUnix > 0 ? format(new Date(startUnix * 1000), "h:mm a") : "Time TBA";
   const bannerHash = data?.[5]?.result ? String(data[5].result) : "";
@@ -133,6 +151,15 @@ export default function EventDetailsPage() {
   const hasAttended = data?.[12]?.result ? Boolean(data[12].result) : false;
   const isOrganizer = userAddress === organizer;
 
+  useEffect(() => {
+    if (isConfirmed) {
+      toast.success("Check-in successful!");
+      setFheStatus("");
+      setIsFheLoading(false);
+      refetch();
+    }
+  }, [isConfirmed, refetch]);
+
   const handleRequestSubmit = (note: string) => {
     writeContract({
       address: contractAddress,
@@ -143,70 +170,126 @@ export default function EventDetailsPage() {
   };
 
   const handlePurchaseAndCheckIn = async () => {
-    console.log("🔍 Pre-flight checks:", {
-      requiresApproval,
-      isApproved,
-      hasAttended,
-      isOrganizer,
-      contractAddress,
-      userAddress,
-      isFree,
-      price: price.toString(),
+    console.log("🚀 Starting check-in process...");
+    console.log("🔧 Config:", {
+      chainId: fhevmConfig.chainId,
+      gatewayUrl: fhevmConfig.gatewayUrl,
+      kmsContract: fhevmConfig.kmsContractAddress,
+      aclContract: fhevmConfig.aclContractAddress,
     });
 
-    if (!connector || !userAddress) {
+    if (!userAddress) {
       toast.error("Wallet not connected");
+      return;
+    }
+
+    if (Date.now() > endUnix * 1000) {
+      toast.error("Event has ended");
+      return;
+    }
+
+    if (hasAttended) {
+      toast.error("Already checked in");
+      return;
+    }
+
+    if (requiresApproval && !isApproved && !isOrganizer) {
+      toast.error("Not approved for this event");
+      return;
+    }
+
+    if (!canEncrypt) {
+      toast.error("Encryption system not ready. Please wait...");
+      return;
+    }
+
+    if (!instance) {
+      toast.error("FHEVM instance not initialized");
       return;
     }
 
     try {
       setIsFheLoading(true);
-      setFheStatus("Initializing secure environment...");
+      setFheStatus("Preparing encrypted data...");
 
-      const { createInstance, initSDK, SepoliaConfig } = await import("@zama-fhe/relayer-sdk/web");
-      await initSDK();
-
-      const instance = await createInstance({
-        ...SepoliaConfig,
-        chainId: 11155111,
-        network: "https://ethereum-sepolia-rpc.publicnode.com",
-      });
-
-      setFheStatus("Loading encryption keys...");
-      await instance.generateKeypair();
-
-      setFheStatus("Encrypting check-in data...");
-
-      // Pack timestamp and ticket type into single value
+   
       const timestamp = BigInt(Math.floor(Date.now() / 1000));
       const ticketType = BigInt(1);
       const packed = (timestamp << BigInt(8)) | ticketType;
 
-      // Encrypt as single euint64
-      const packedInput = instance.createEncryptedInput(contractAddress, userAddress);
-      packedInput.add64(packed);
-      const encryptedPacked = await packedInput.encrypt();
+      console.log("📦 Encrypting data:", {
+        timestamp: timestamp.toString(),
+        ticketType: ticketType.toString(),
+        packed: packed.toString(),
+      });
 
-      setFheStatus("Confirming transaction...");
+      setFheStatus("Encrypting check-in proof...");
+
+ 
+      const encryptResult = await encryptWith(input => {
+        input.add64(packed);
+      });
+
+      if (!encryptResult) {
+        throw new Error("Encryption failed - no result returned");
+      }
+
+      const { handles, inputProof } = encryptResult;
+
+      console.log("🔐 Encryption complete:", {
+        handleLength: handles[0]?.length,
+        proofLength: inputProof.length,
+      });
+
+      if (!handles[0] || handles[0].length !== 32) {
+        throw new Error(`Invalid handle: expected 32 bytes, got ${handles[0]?.length || 0}`);
+      }
+
+     
+      const inputPackedHex =
+        "0x" +
+        Array.from(new Uint8Array(handles[0]))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+
+      const packedProofHex =
+        "0x" +
+        Array.from(new Uint8Array(inputProof))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+
+      console.log("📤 Submitting transaction:", {
+        inputLength: inputPackedHex.length,
+        proofLength: packedProofHex.length,
+        value: isFree ? "0 ETH" : formatEther(price) + " ETH",
+      });
+
+      setFheStatus("Waiting for wallet confirmation...");
+
 
       writeContract({
         address: contractAddress,
         abi: AZEND_EVENT_ABI,
         functionName: "checkIn",
-        args: [
-          toHex(encryptedPacked.handles[0]), // inputPacked
-          toHex(encryptedPacked.inputProof), // packedProof
-        ],
+        args: [inputPackedHex as `0x${string}`, packedProofHex as `0x${string}`],
         value: isFree ? BigInt(0) : price,
-        gas: 5000000n, // Increased to 5M gas for FHE operations
+        gas: BigInt(5000000),
       });
     } catch (e: any) {
-      console.error("FHE Error:", e);
-      if (e?.code === 4001 || e?.cause?.code === 4001 || e?.message?.includes("User rejected")) {
+      console.error("❌ Check-in error:", e);
+
+      if (e?.message?.includes("rejected") || e?.code === 4001) {
         toast.info("Transaction cancelled");
+      } else if (e?.message?.includes("insufficient funds")) {
+        toast.error("Insufficient ETH for transaction");
+      } else if (e?.message?.includes("not ready") || e?.message?.includes("not initialized")) {
+        toast.error("Encryption system not ready. Please refresh and try again.");
+      } else if (e?.message?.includes("Relayer")) {
+        toast.error("Encryption service unavailable. Please try again.");
       } else {
-        toast.error(`Error: ${e.message.slice(0, 100)}...`);
+        toast.error(`Error: ${e.message?.slice(0, 80) || "Unknown error"}`);
       }
+
       setIsFheLoading(false);
       setFheStatus("");
     }
@@ -238,9 +321,7 @@ export default function EventDetailsPage() {
           <div className="flex items-center gap-2 font-bold">
             <CheckCircle size={18} /> Ticket Confirmed
           </div>
-          <p className="text-xs text-green-400/70">
-            You have successfully paid and generated your zero-knowledge check-in proof.
-          </p>
+          <p className="text-xs text-green-400/70">You have successfully checked in with encrypted proof.</p>
         </div>
       );
     }
@@ -256,8 +337,24 @@ export default function EventDetailsPage() {
     const canJoin = !requiresApproval || isApproved;
 
     if (canJoin) {
+      const isEncryptionReady = fhevmStatus === "ready" && canEncrypt;
+      const showLoadingState = fhevmStatus === "loading" || (isConnected && fhevmStatus === "idle");
+
       return (
         <div className="space-y-4">
+          {!isEncryptionReady && (
+            <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-200 text-xs mb-2 flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              {showLoadingState ? (
+                <span>Initializing encryption system...</span>
+              ) : fhevmStatus === "error" ? (
+                <span>Encryption system error. Please refresh the page.</span>
+              ) : (
+                <span>Loading encryption ({fhevmStatus})...</span>
+              )}
+            </div>
+          )}
+
           {!isFree && (
             <div className="flex justify-between items-center text-sm px-1">
               <span className="text-gray-400">Total Price</span>
@@ -267,7 +364,7 @@ export default function EventDetailsPage() {
 
           <button
             onClick={handlePurchaseAndCheckIn}
-            disabled={isPending || isConfirming || isFheLoading}
+            disabled={isPending || isConfirming || isFheLoading || !isEncryptionReady}
             className="w-full bg-[#CFFF04] hover:bg-[#bce600] disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
           >
             {isPending || isConfirming || isFheLoading ? (
@@ -313,7 +410,7 @@ export default function EventDetailsPage() {
       />
       <div className="max-w-[1200px] mx-auto px-6 md:px-12 pt-28 pb-20">
         <button
-          onClick={() => router.push("/eventz")}
+          onClick={() => router.push("/explore")}
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft size={18} /> Back to Events

@@ -21,6 +21,8 @@ const nextConfig: NextConfig = {
         global: "globalThis",
       }),
     );
+
+    
     return config;
   },
 };

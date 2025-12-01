@@ -1,7 +1,34 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "baseUrl": ".",
+    "paths": {
+      "~~/*": [
+        "./*"
+      ],
+      "@fhevm-sdk": [
+        "../fhevm-sdk/src/index.ts"
+      ],
+      "@fhevm-sdk/*": [
+        "../fhevm-sdk/src/*"
+      ],
+      "@fhevm-sdk/react": [
+        "../fhevm-sdk/src/react/index.ts"
+      ],
+      "@fhevm-sdk/core": [
+        "../fhevm-sdk/src/core/index.ts"
+      ],
+      "@fhevm-sdk/storage": [
+        "../fhevm-sdk/src/storage/index.ts"
+      ],
+      "@fhevm-sdk/types": [
+        "../fhevm-sdk/src/fhevmTypes.ts"
+      ]
+    },
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -9,20 +36,25 @@
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "paths": {
-      "~~/*": ["./*"]
-    },
     "plugins": [
       {
         "name": "next"
       }
-    ]
+    ],
+    "target": "ES2017"
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/my-events"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

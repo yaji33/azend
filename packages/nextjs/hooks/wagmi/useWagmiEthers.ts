@@ -45,7 +45,6 @@ export const useWagmiEthers = (initialMockChains?: Readonly<Record<number, strin
     return new ethers.JsonRpcSigner(ethersProvider, address);
   }, [ethersProvider, address]);
 
-  // Stable refs consumers can reuse
   const ropRef = useRef<typeof ethersReadonlyProvider>(ethersReadonlyProvider);
   const chainIdRef = useRef<number | undefined>(chainId);
 
@@ -57,14 +56,15 @@ export const useWagmiEthers = (initialMockChains?: Readonly<Record<number, strin
     chainIdRef.current = chainId;
   }, [chainId]);
 
+  
   return {
     chainId,
     accounts,
     isConnected,
     ethersProvider,
     ethersReadonlyProvider,
-    ethersSigner,
+    ethersSigner, 
     ropRef,
     chainIdRef,
-  } as const;
+  };
 };

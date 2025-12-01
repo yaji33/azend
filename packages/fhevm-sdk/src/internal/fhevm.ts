@@ -1,12 +1,6 @@
 import { isAddress, Eip1193Provider, JsonRpcProvider } from "ethers";
-// import { createInstance } from "@zama-fhe/relayer-sdk/web";
 import { publicKeyStorageGet, publicKeyStorageSet } from "./PublicKeyStorage";
 import { FhevmInstance } from "../fhevmTypes";
-import {
-  ACL_ADDRESS_DEVNET,
-  ACL_ADDRESS_SEPOLIA,
-  KMS_VERIFIER_SEPOLIA,
-} from "./constants";
 
 export class FhevmReactError extends Error {
   override name = "FhevmReactError";
@@ -18,14 +12,6 @@ export class FhevmReactError extends Error {
   }
 }
 
-function throwFhevmError(
-  code: string,
-  message?: string,
-  cause?: unknown
-): never {
-  throw new FhevmReactError(code, message, cause ? { cause } : undefined);
-}
-
 export class FhevmAbortError extends Error {
   constructor(message = "FHEVM operation was cancelled") {
     super(message);
@@ -34,6 +20,13 @@ export class FhevmAbortError extends Error {
 }
 
 type FhevmRelayerStatusType = "creating";
+
+export type FhevmCustomConfig = {
+  aclContractAddress: string;
+  kmsContractAddress?: string;
+  relayerUrl?: string;
+  networkUrl?: string;
+};
 
 async function getChainId(
   providerOrUrl: Eip1193Provider | string
@@ -45,8 +38,6 @@ async function getChainId(
   const chainId = await providerOrUrl.request({ method: "eth_chainId" });
   return Number.parseInt(chainId as string, 16);
 }
-
-// ... (Keep getWeb3Client, tryFetchFHEVMHardhatNodeRelayerMetadata, getFHEVMRelayerMetadata, resolve, etc. exactly as they were) ...
 
 type MockResolveResult = { isMock: true; chainId: number; rpcUrl: string };
 type GenericResolveResult = { isMock: false; chainId: number; rpcUrl?: string };
@@ -77,16 +68,18 @@ async function resolve(
 export const createFhevmInstance = async (parameters: {
   provider: Eip1193Provider | string;
   mockChains?: Record<number, string>;
-  gatewayUrl?: string;
+  relayerUrl?: string;
   signal: AbortSignal;
   onStatusChange?: (status: FhevmRelayerStatusType) => void;
+  config?: FhevmCustomConfig;
 }): Promise<FhevmInstance> => {
   const {
     signal,
     onStatusChange,
     provider: providerOrUrl,
     mockChains,
-    gatewayUrl = "https://gateway.zama.ai",
+    relayerUrl: paramRelayerUrl,
+    config,
   } = parameters;
 
   const throwIfAborted = () => {
@@ -97,57 +90,59 @@ export const createFhevmInstance = async (parameters: {
     if (onStatusChange) onStatusChange(status);
   };
 
-  const { rpcUrl, chainId } = await resolve(providerOrUrl, mockChains);
+  const { rpcUrl: resolvedRpcUrl, chainId } = await resolve(
+    providerOrUrl,  
+    mockChains
+  );
 
-  // 1. MOCK / LOCAL HARDHAT LOGIC (Skipped for now)
-
-  // 2. REAL FHEVM LOGIC
   throwIfAborted();
   notify("creating");
 
-  const { createInstance } = await import("@zama-fhe/relayer-sdk/web");
 
-  // --- LOGIC START: Determine RPC and ACL based on Chain ID ---
-  let effectiveRpcUrl =
-    typeof providerOrUrl === "string" ? providerOrUrl : rpcUrl;
+  const { createInstance, initSDK, SepoliaConfig } = await import(
+    "@zama-fhe/relayer-sdk/web"
+  );
 
-  // 🔴 FIX: Explicitly type this as `0x${string}` and cast the constant
-  let effectiveAcl: `0x${string}` = ACL_ADDRESS_SEPOLIA as `0x${string}`;
-  let effectiveKms: `0x${string}` | undefined =
-    KMS_VERIFIER_SEPOLIA as `0x${string}`;
+  await initSDK();
 
-  if (chainId === 11155111) {
-    // Sepolia
-    effectiveAcl = ACL_ADDRESS_SEPOLIA as `0x${string}`;
-    effectiveKms = KMS_VERIFIER_SEPOLIA as `0x${string}`;
-    if (!effectiveRpcUrl) {
-      effectiveRpcUrl = "https://ethereum-sepolia-rpc.publicnode.com";
-    }
-  } else if (chainId === 8009) {
-    // Zama Devnet
-    effectiveAcl = ACL_ADDRESS_DEVNET as `0x${string}`;
-    effectiveKms = undefined;
-    if (!effectiveRpcUrl) {
-      effectiveRpcUrl = "https://devnet.zama.ai";
-    }
-  } else {
-    // Fallback if rpcUrl is undefined
-    if (!effectiveRpcUrl) {
-      effectiveRpcUrl = "https://ethereum-sepolia-rpc.publicnode.com";
-    }
-  }
-  // --- LOGIC END ---
+  const baseTemplate = SepoliaConfig;
+
+
+  const effectiveRpcUrl =
+    config?.networkUrl ||
+    (typeof providerOrUrl === "string" ? providerOrUrl : resolvedRpcUrl) ||
+    "https://ethereum-sepolia-rpc.publicnode.com";
+
+  const effectiveRelayerUrl =
+    config?.relayerUrl || paramRelayerUrl || "https://relayer.testnet.zama.org";
+
+  const effectiveAcl = (config?.aclContractAddress ||
+    baseTemplate.aclContractAddress) as `0x${string}`;
+  const effectiveKms = config?.kmsContractAddress as `0x${string}` | undefined;
 
   const pub = await publicKeyStorageGet(effectiveAcl);
 
-  const instance = await createInstance({
+  const instanceConfig = {
+    ...baseTemplate,
     chainId,
     networkUrl: effectiveRpcUrl,
-    gatewayUrl: gatewayUrl,
+    relayerUrl: effectiveRelayerUrl,
+    gatewayUrl: effectiveRelayerUrl, 
     publicKey: pub?.publicKey || undefined,
-    aclContractAddress: effectiveAcl, 
-    kmsContractAddress: effectiveKms,
-  } as any);
+    aclContractAddress: effectiveAcl,
+    ...(effectiveKms && isAddress(effectiveKms)
+      ? { kmsContractAddress: effectiveKms }
+      : {}),
+  };
+
+  console.log("🚀 Creating FHEVM instance:", {
+    chainId,
+    relayer: instanceConfig.relayerUrl,
+    acl: instanceConfig.aclContractAddress,
+    kms: instanceConfig.kmsContractAddress || "N/A",
+  });
+
+  const instance = await createInstance(instanceConfig);
 
   if (instance.getPublicKey()) {
     const publicParams = instance.getPublicParams(2048);
@@ -161,6 +156,5 @@ export const createFhevmInstance = async (parameters: {
   }
 
   throwIfAborted();
-
   return instance;
 };

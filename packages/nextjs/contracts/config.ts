@@ -4,7 +4,7 @@ export const EVENT_FACTORY_ADDRESS = deployedContracts[11155111].EventFactory.ad
 export const EVENT_FACTORY_ABI = deployedContracts[11155111].EventFactory.abi;
 
 export const AZEND_EVENT_ABI = [
-  // View functions
+
   { name: "eventName", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { name: "description", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { name: "location", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
@@ -19,7 +19,6 @@ export const AZEND_EVENT_ABI = [
   { name: "useEncryptedCounter", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
   { name: "totalAttendeesPlain", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint32" }] },
 
-  // Initialize
   {
     name: "initialize",
     type: "function",
@@ -40,8 +39,6 @@ export const AZEND_EVENT_ABI = [
     ],
     outputs: [],
   },
-
-  // Requests
   {
     name: "requestData",
     type: "function",
@@ -70,8 +67,6 @@ export const AZEND_EVENT_ABI = [
     inputs: [{ name: "user", type: "address" }],
     outputs: [{ type: "bool" }],
   },
-
-  // Encrypted getters
   { name: "getMyPackedCheckIn", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "bytes" }] },
   {
     name: "getTotalAttendeesEncrypted",
@@ -88,7 +83,6 @@ export const AZEND_EVENT_ABI = [
     outputs: [{ type: "uint32" }],
   },
 
-  // Core writes
   {
     name: "requestToJoin",
     type: "function",
@@ -108,7 +102,8 @@ export const AZEND_EVENT_ABI = [
     type: "function",
     stateMutability: "payable",
     inputs: [
-      { name: "inputPacked", type: "bytes" },
+
+      { name: "inputPacked", type: "bytes", internalType: "externalEuint64" },
       { name: "packedProof", type: "bytes" },
     ],
     outputs: [],
