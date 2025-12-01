@@ -1,19 +1,41 @@
+import { connectorsForWallets } from "@rainbow-me/rainbowkit";
+import {
+  coinbaseWallet,
+  injectedWallet,
+  metaMaskWallet,
+  rainbowWallet,
+  walletConnectWallet,
+} from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
 import { sepolia } from "wagmi/chains";
-import { injected, metaMask, walletConnect } from "wagmi/connectors";
 
-// Get WalletConnect project ID from environment
 const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "";
 
-console.log("🔧 Initializing Wagmi with direct Sepolia RPC");
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "Recommended",
+      wallets: [
+        metaMaskWallet,
+        rainbowWallet,
+        coinbaseWallet,
+        walletConnectWallet,
+        injectedWallet,
+      ],
+    },
+  ],
+  {
+    appName: "Azend",
+    projectId,
+  },
+);
 
 export const config = createConfig({
   chains: [sepolia],
-  connectors: [injected(), metaMask(), ...(projectId ? [walletConnect({ projectId })] : [])],
+  connectors,
   transports: {
     [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com", {
-      // CRITICAL FIX: Disable batching and set proper limits
-      batch: false, // Prevents gas estimation multiplication
+      batch: false,
       timeout: 30_000,
       retryCount: 3,
       retryDelay: 1000,
@@ -21,9 +43,3 @@ export const config = createConfig({
   },
   ssr: true,
 });
-
-declare module "wagmi" {
-  interface Register {
-    config: typeof config;
-  }
-}
