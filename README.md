@@ -1,170 +1,154 @@
-# FHEVM React Template
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/a34a26dc-66e2-421e-a2dd-0cc65a90f563" width="170" alt="AZEND Logo" />
+</p>
 
-A minimal React frontend template for building FHEVM-enabled decentralized applications (dApps). This template provides a simple development interface for interacting with FHEVM smart contracts, specifically the `FHECounter.sol` contract.
+<p align="center">
+  <a href="https://azend.vercel.app/">
+    <img src="https://img.shields.io/badge/demo-live-success" alt="Live Demo"/>
+  </a>
+  <a href="https://github.com/yaji33/azend/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-BSD%203--Clause%20Clear-blue.svg" alt="License"/>
+  </a>
+</p>
 
-## 🚀 What is FHEVM?
+# AZEND: Confidential Event Management on FHEVM
 
-FHEVM (Fully Homomorphic Encryption Virtual Machine) enables computation on encrypted data directly on Ethereum. This template demonstrates how to build dApps that can perform computations while keeping data private.
+> **A privacy-first ticketing and event management platform built on the Zama Protocol.**  
+> *Submitted to the Zama Developer Program - Builder Track*
 
-## ✨ Features
+## 📖 Overview
 
-- **🔐 FHEVM Integration**: Built-in support for fully homomorphic encryption
-- **⚛️ React + Next.js**: Modern, performant frontend framework
-- **🎨 Tailwind CSS**: Utility-first styling for rapid UI development
-- **🔗 RainbowKit**: Seamless wallet connection and management
-- **🌐 Multi-Network Support**: Works on both Sepolia testnet and local Hardhat node
-- **📦 Monorepo Structure**: Organized packages for SDK, contracts, and frontend
+**AZEND** redefines how we manage private gatherings and exclusive events on-chain. Traditional blockchain ticketing exposes attendee data, wallet connections, and movement history to the public. 
 
-## 📋 Prerequinextjss
+AZEND utilizes **Fully Homomorphic Encryption (FHE)** to ensure that ticket ownership, check-in status, and attendee lists remain encrypted on-chain. The smart contract validates check-in criteria (time, ticket validity) mathematically over encrypted data without ever revealing the underlying values to the public or validators.
 
-Before you begin, ensure you have:
+---
 
-- **Node.js** (v18 or higher)
-- **pnpm** package manager
-- **MetaMask** browser extension
-- **Git** for cloning the repository
+## 🛠️ Tech Stack & Versioning
 
-## 🛠️ Quick Start
+We are utilizing the latest **Zama v0.9** ecosystem tools to ensure compatibility with the Sepolia Testnet and Gateway.
 
-### 1. Clone and Setup
+### Core FHE Libraries
+| Package | Version | Purpose |
+| :--- | :--- | :--- |
+| **`@fhevm/solidity`** | `v0.9.1` | **Smart Contracts.** Provides the `TFHE` library for on-chain encrypted operations (`euint64`, `ebool`, `TFHE.asEuint64`, `TFHE.le`). |
+| **`@zama-fhe/relayer-sdk`** | `v0.3.0-5` | **Decryption/Gateway.** Crucial for v0.9: Enables the new self-relaying decryption model for viewing private analytics. |
+| **`@fhevm/hardhat-plugin`** | `v0.3.0-1` | **Development.** Latest tooling support for deployment and local mocking. |
+| **`fhevm`** | `latest` | **Client-Side Encryption.** Used for generating EIP-712 signatures and native encrypted inputs (`euint64` ciphertexts). |
+
+### DApp Architecture
+*   **Framework:** Next.js 14 (App Router)
+*   **Language:** TypeScript
+*   **Blockchain Interaction:** Wagmi v2, Viem, Ethers v6
+*   **Storage:** IPFS (via **Pinata**) for Event Banners/Metadata
+*   **Styling:** Tailwind CSS, Shadcn/UI, Lucide React
+
+---
+
+## 🔒 Confidential Architecture
+
+AZEND demonstrates "Original Tech Architecture" by moving beyond simple encrypted counters. We implement a **Bitwise Packed Check-In System**.
+
+### 1. The Encrypted Check-In Flow
+Instead of sending separate encrypted values (which costs more gas), the client packs data into a single 64-bit integer before encryption.
+
+1.  **Client Side:**
+    *   We take the current **Timestamp** (32 bits).
+    *   We take the **Ticket Type** (e.g., VIP=1, GA=2).
+    *   We pack them: `packedValue = (Timestamp << 8) | TicketType`.
+    *   We generate a **Native FHE Ciphertext** (approx 2kb) using the `fhevm` library.
+
+2.  **On-Chain (Smart Contract):**
+    *   The contract receives the ciphertext.
+    *   It converts it to an `euint64` using `TFHE.asEuint64(input, proof)`.
+    *   It validates the time window: `TFHE.le(packedTimestamp, eventEndTime)`.
+    *   It updates the user's attendance status (`hasAttended[user]`) strictly using homomorphic logic.
+
+---
+
+## Use Case Diagram 
+<img width="1238" height="800" alt="AZEND-UseCase-Diagram" src="https://github.com/user-attachments/assets/b36460b5-d371-45aa-9a8b-44fbab5fbf71" />
+
+## Context FLow Diagram
+<img width="1238" height="800" alt="AZEND-Context-Flow-Diagram" src="https://github.com/user-attachments/assets/93f84fbb-7d65-4d34-8ec0-6eafd840f153" />
+
+## Sequence Diagram
+<img width="1238" height="1132" alt="AZEND-Sequence-Diagram" src="https://github.com/user-attachments/assets/bab5d4e6-967c-4fa6-8094-065a5582f4d8" />
+
+
+## 🚀 Getting Started
+
+This is a **Monorepo** containing both the Hardhat environment and the Next.js frontend.
+
+### Prerequisites
+*   Node.js v20+
+*   pnpm (recommended) or npm
+*   Metamask (Configured for Sepolia)
+
+### 1. Installation
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd fhevm-react-template
+https://github.com/yaji33/azend.git
+cd azend
 
-# Initialize submodules (includes fhevm-hardhat-template)
-git submodule update --init --recursive
-
-# Install dependencies
+# Install dependencies for root, hardhat, and nextjs
 pnpm install
 ```
 
-### 2. Environment Configuration
+### 2. Environment Setup
 
-Set up your Hardhat environment variables by following the [FHEVM documentation](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup#set-up-the-hardhat-configuration-variables-optional):
+You must configure the environment variables for both the Smart Contract environment and the Frontend.
 
-- `MNEMONIC`: Your wallet mnemonic phrase
-- `INFURA_API_KEY`: Your Infura API key for Sepolia
+A. Hardhat Configuration
 
-### 3. Start Development Environment
+Create a file at packages/hardhat/.env
+```
+# Your Exported Wallet Private Key (Must have Sepolia ETH)
+PRIVATE_KEY=0x...
 
-**Option A: Local Development (Recommended for testing)**
+# Standard Sepolia RPC (e.g., Alchemy, Infura, or Public Node)
+SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 
-```bash
-# Terminal 1: Start local Hardhat node
-pnpm chain
-# RPC URL: http://127.0.0.1:8545 | Chain ID: 31337
+# For verifying contracts (Optional)
+ETHERSCAN_API_KEY=...
+```
 
-# Terminal 2: Deploy contracts to localhost
-pnpm deploy:localhost
+B. Next.js Configuration
 
-# Terminal 3: Start the frontend
+Create a file at packages/nextjs/.env.local:
+```
+# Pinata JWT for uploading Event Banners to IPFS
+PINATA_JWT=...
+
+# WalletConnect Project ID (from cloud.walletconnect.com)
+NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=...
+
+# Public Sepolia RPC for the frontend to read chain data
+NEXT_PUBLIC_SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+```
+
+### 3. Deploy Contracts (Optional)
+The project comes with pre-configured addresses, but if you wish to deploy your own:
+```
+cd packages/hardhat
+npx hardhat deploy --network sepolia
+```
+
+### Run the DApp
+```
 pnpm start
 ```
+### 🧪 Testing
 
-**Option B: Sepolia Testnet**
-
-```bash
-# Deploy to Sepolia testnet
-pnpm deploy:sepolia
-
-# Start the frontend
-pnpm start
+We have end-to-end tests ensuring the packing logic and encryption work correctly using the hardhat-fhevm mock mode.
+```
+cd packages/hardhat
+npx hardhat test
 ```
 
-### 4. Connect MetaMask
-
-1. Open [http://localhost:3000](http://localhost:3000) in your browser
-2. Click "Connect Wallet" and select MetaMask
-3. If using localhost, add the Hardhat network to MetaMask:
-   - **Network Name**: Hardhat Local
-   - **RPC URL**: `http://127.0.0.1:8545`
-   - **Chain ID**: `31337`
-   - **Currency Symbol**: `ETH`
-
-### ⚠️ Sepolia Production note
-
-- In production, `NEXT_PUBLIC_ALCHEMY_API_KEY` must be set (see `packages/nextjs/scaffold.config.ts`). The app throws if missing.
-- Ensure `packages/nextjs/contracts/deployedContracts.ts` points to your live contract addresses.
-- Optional: set `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` for better WalletConnect reliability.
-- Optional: add per-chain RPCs via `rpcOverrides` in `packages/nextjs/scaffold.config.ts`.
-
-## 🔧 Troubleshooting
-
-### Common MetaMask + Hardhat Issues
-
-When developing with MetaMask and Hardhat, you may encounter these common issues:
-
-#### ❌ Nonce Mismatch Error
-
-**Problem**: MetaMask tracks transaction nonces, but when you restart Hardhat, the node resets while MetaMask doesn't update its tracking.
-
-**Solution**:
-1. Open MetaMask extension
-2. Select the Hardhat network
-3. Go to **Settings** → **Advanced**
-4. Click **"Clear Activity Tab"** (red button)
-5. This resets MetaMask's nonce tracking
-
-#### ❌ Cached View Function Results
-
-**Problem**: MetaMask caches smart contract view function results. After restarting Hardhat, you may see outdated data.
-
-**Solution**:
-1. **Restart your entire browser** (not just refresh the page)
-2. MetaMask's cache is stored in extension memory and requires a full browser restart to clear
-
-> 💡 **Pro Tip**: Always restart your browser after restarting Hardhat to avoid cache issues.
-
-For more details, see the [MetaMask development guide](https://docs.metamask.io/wallet/how-to/run-devnet/).
-
-## 📁 Project Structure
-
-This template uses a monorepo structure with three main packages:
-
+Test Scenarios:
 ```
-fhevm-react-template/
-├── packages/
-│   ├── fhevm-hardhat-template/    # Smart contracts & deployment
-│   ├── fhevm-sdk/                 # FHEVM SDK package
-│   └── nextjs/                      # React frontend application
-└── scripts/                       # Build and deployment scripts
+✅ Event Creation with encrypted boolean flags.
+✅ Encrypted Check-In: Validating the bitwise packed timestamp logic via fhevm instance.
+✅ Access Control: Verifying that only the organizer can request re-encryption of analytics.
 ```
-
-### Key Components
-
-#### 🔗 FHEVM Integration (`packages/nextjs/hooks/fhecounter-example/`)
-- **`useFHECounterWagmi.tsx`**: Example hook demonstrating FHEVM contract interaction
-- Essential hooks for FHEVM-enabled smart contract communication
-- Easily copyable to any FHEVM + React project
-
-#### 🎣 Wallet Management (`packages/nextjs/hooks/helper/`)
-- MetaMask wallet provider hooks
-- Compatible with EIP-6963 standard
-- Easily adaptable for other wallet providers
-
-#### 🔧 Flexibility
-- Replace `ethers.js` with `Wagmi` or other React-friendly libraries
-- Modular architecture for easy customization
-- Support for multiple wallet providers
-
-## 📚 Additional Resources
-
-### Official Documentation
-- [FHEVM Documentation](https://docs.zama.ai/protocol/solidity-guides/) - Complete FHEVM guide
-- [FHEVM Hardhat Guide](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat) - Hardhat integration
-- [Relayer SDK Documentation](https://docs.zama.ai/protocol/relayer-sdk-guides/) - SDK reference
-- [Environment Setup](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup#set-up-the-hardhat-configuration-variables-optional) - MNEMONIC & API keys
-
-### Development Tools
-- [MetaMask + Hardhat Setup](https://docs.metamask.io/wallet/how-to/run-devnet/) - Local development
-- [React Documentation](https://reactjs.org/) - React framework guide
-
-### Community & Support
-- [FHEVM Discord](https://discord.com/invite/zama) - Community support
-- [GitHub Issues](https://github.com/zama-ai/fhevm-react-template/issues) - Bug reports & feature requests
-
-## 📄 License
-
-This project is licensed under the **BSD-3-Clause-Clear License**. See the [LICENSE](LICENSE) file for details.
