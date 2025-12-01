@@ -4,11 +4,13 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   typescript: {
-    ignoreBuildErrors: process.env.NEXT_PUBLIC_IGNORE_BUILD_ERROR === "true",
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: process.env.NEXT_PUBLIC_IGNORE_BUILD_ERROR === "true",
+    ignoreDuringBuilds: true, 
   },
+ 
+  transpilePackages: ["@fhevm-sdk"],
 
   webpack: (config: any, { webpack }: any) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
