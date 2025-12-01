@@ -34,7 +34,7 @@ We are utilizing the latest **Zama v0.9** ecosystem tools to ensure compatibilit
 | **`@fhevm/solidity`** | `v0.9.1` | **Smart Contracts.** Provides the `TFHE` library for on-chain encrypted operations (`euint64`, `ebool`, `TFHE.asEuint64`, `TFHE.le`). |
 | **`@zama-fhe/relayer-sdk`** | `v0.3.0-5` | **Decryption/Gateway.** Crucial for v0.9: Enables the new self-relaying decryption model for viewing private analytics. |
 | **`@fhevm/hardhat-plugin`** | `v0.3.0-1` | **Development.** Latest tooling support for deployment and local mocking. |
-| **`fhevm`** | `latest` | **Client-Side Encryption.** Used for generating EIP-712 signatures and native encrypted inputs (`euint64` ciphertexts). |
+
 
 ### DApp Architecture
 *   **Framework:** Next.js 14 (App Router)
