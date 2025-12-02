@@ -55,7 +55,6 @@ Instead of sending separate encrypted values (which costs more gas), the client 
 1.  **Client Side:**
     *   We take the current **Timestamp** (32 bits).
     *   We take the **Ticket Type** (e.g., VIP=1, GA=2).
-    *   We pack them: `packedValue = (Timestamp << 8) | TicketType`.
     *   We generate a **Native FHE Ciphertext** (approx 2kb) using the `fhevm` library.
 
 2.  **On-Chain (Smart Contract):**
